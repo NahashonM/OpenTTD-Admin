@@ -1,82 +1,84 @@
+
 import sys
 import socket
-
 import OpenTTD.enums as types
 
-# type + data
-# type
-# data [ similar to passing raw data to fill the packet]
+
 class Packet(socket.socket):
-	def __init__(self, *, packet_type:int = types.INVALID_PACKET, packet_data = b''):
+	#---------------------------------
+	# type conversion
+	#---------------------------------
+	def int_to_bytes(int_value: int, byte_count:int, separator: bytes = b'\x00') -> bytearray:
+		tmp_data = int_value.to_bytes(byte_count, sys.byteorder) + separator
+		return tmp_data
 
-		if packet_type == types.INVALID_PACKET and len(packet_data) > 0:
-			packet_type = int(packet_data[2])
-			packet_data = packet_data[3:]
-		
-		self.packet_type = types.PacketAdminType(packet_type)
-		self.size = len(packet_data)
-		self.data = packet_data
+	def str_to_bytes(str_value:str, separator: bytes = b'\x00') -> bytearray:
+		tmp_data = bytearray(str_value, "UTF-8") + separator
+		return tmp_data
+
 	
-
-	def add_int(self, data: int, byte_count:int, separator: bytes = b'\x00'):
-		tmp_data = data.to_bytes(byte_count, sys.byteorder) + separator
-
-		self.size += len(tmp_data)
-		self.data += tmp_data
-
-
-	def add_str(self, data:str, separator: bytes = b'\x00'):
-		tmp_data = bytearray(data, "UTF-8") + separator
-
-		self.size += len(tmp_data)
-		self.data += tmp_data
-
-
-	def add_bytes(self, data: bytearray):
-		self.size += len(data)
-		self.data += data
+	def bytes_to_int(byte_value: bytearray, signed=False) -> int:
+		return int.from_bytes(byte_value, sys.byteorder, signed=signed)
 	
-	def get_type(self):
-		return types.PacketAdminType(self.packet_type)
+	def bytes_to_str(byte_value: bytearray) -> str:
+		return byte_value.decode()
+	
+	def bytes_to_bool(byte_value: bytearray) -> bool:
+		return bool.from_bytes(byte_value, byteorder=sys.byteorder)
 
-	def get_size(self):
-		return self.size + 3
+	#---------------------------------
+	# type parse
+	#---------------------------------
+	def get_int_from_bytes(byte_value: bytearray, int_size: int, *, signed=False):
+		int_value = Packet.bytes_to_int( byte_value[: int_size], signed=signed )
+		return int_value, int_size
 
-	def get_data(self):
-		return self.data
+	def get_bool_from_bytes(byte_value: bytearray, bool_size: int = 1):
+		bool_value = Packet.bytes_to_bool( byte_value[: bool_size] )
+		return bool_value, bool_size
 
-	def send_data(self, tcp_socket):
+	def get_str_from_bytes(byte_value: bytearray) -> bool:
+		str_value = Packet.bytes_to_str( byte_value[: byte_value.index(b'\x00')] )
+		return str_value, len(str_value) + 1
+
+	#---------------------------------
+	# Network get fetch
+	#---------------------------------
+
+	def send_data(packet_type: types.PacketAdminType, data: bytearray, tcp_socket: socket.socket) -> bool:
 		try:
-			data = self.get_size().to_bytes(2, sys.byteorder)
-			data += self.packet_type.to_bytes(1, sys.byteorder)
-			data += self.data
+			packet_size = (len(data) + 3).to_bytes(2, sys.byteorder)
+			packet_type = types.PacketAdminType(packet_type).to_bytes(1, sys.byteorder)
+
+			data = packet_size + packet_type + data
 
 			tcp_socket.sendall( data )
 
 			return True
-
 		except:
 			return False
 	
 
-	def receive_data(tcp_socket):
-		buffer_size = 1025
-		raw_data = b''
+	def receive_data(tcp_socket) -> tuple:
+
+		buffer = b''
 		try:
 			while True:
-				buffer = tcp_socket.recv(buffer_size)
-				raw_data += buffer
 
-				if not buffer or len(buffer) < buffer_size :
+				buffer += tcp_socket.recv(1024)
+
+				size_fetched = len(buffer)
+				message_size = Packet.bytes_to_int(buffer[:2], False)
+				
+				if size_fetched == 0 or size_fetched >=  message_size:
 					break
-			
-			# a weiredly short message was received
-			if len( raw_data ) <= 3:
-				return False
 
-			return Packet( packet_data = raw_data )
-		except:
-			return False
+			packet_type = types.PacketAdminType( buffer[2] )
+
+			return packet_type, buffer[3:]
+		except Exception as e:
+			print(e)
+			return 0, b''
 
 
 

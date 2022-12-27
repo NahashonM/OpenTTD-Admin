@@ -135,3 +135,51 @@ class DestType(IntEnum):
 	DESTTYPE_TEAM		=1			# < Send message/notice to everyone playing the same company (Team)
 	DESTTYPE_CLIENT		=2			# < Send message/notice to only a certain client (Private)
 
+
+class TextColor(IntEnum):
+	TC_BEGIN       = 0x00
+	TC_FROMSTRING  = 0x00
+	TC_BLUE        = 0x00
+	TC_SILVER      = 0x01
+	TC_GOLD        = 0x02
+	TC_RED         = 0x03
+	TC_PURPLE      = 0x04
+	TC_LIGHT_BROWN = 0x05
+	TC_ORANGE      = 0x06
+	TC_GREEN       = 0x07
+	TC_YELLOW      = 0x08
+	TC_DARK_GREEN  = 0x09
+	TC_CREAM       = 0x0A
+	TC_BROWN       = 0x0B
+	TC_WHITE       = 0x0C
+	TC_LIGHT_BLUE  = 0x0D
+	TC_GREY        = 0x0E
+	TC_DARK_BLUE   = 0x0F
+	TC_BLACK       = 0x10
+	TC_END		   = 0x11
+	TC_INVALID     = 0xFF,
+	TC_IS_PALETTE_COLOUR = 0x100	# Colour value is already a real palette colour index, not an index of a StringColour.
+	TC_NO_SHADE          = 0x200	# Do not add shading to this text colour.
+	TC_FORCED            = 0x400	# Ignore colour changes from strings.
+
+
+class Color(IntEnum):
+	COLOUR_BEGIN		=0
+	COLOUR_DARK_BLUE 	=0
+	COLOUR_PALE_GREEN	=1
+	COLOUR_PINK			=2
+	COLOUR_YELLOW		=3
+	COLOUR_RED			=4
+	COLOUR_LIGHT_BLUE	=5
+	COLOUR_GREEN		=6
+	COLOUR_DARK_GREEN	=7
+	COLOUR_BLUE			=8
+	COLOUR_CREAM		=9
+	COLOUR_MAUVE		=10
+	COLOUR_PURPLE		=11
+	COLOUR_ORANGE		=12
+	COLOUR_BROWN		=13
+	COLOUR_GREY			=14
+	COLOUR_WHITE		=15
+	COLOUR_END			=16
+	INVALID_COLOUR		= 0xFF

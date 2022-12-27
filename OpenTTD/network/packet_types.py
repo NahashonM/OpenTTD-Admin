@@ -1,103 +1,180 @@
 
 import sys
+import socket
 import OpenTTD.enums as types
-import OpenTTD.network.packet as packet
 
+from OpenTTD.network.packet import Packet
 from OpenTTD.date import Date
 
-class PacketAdminJoin( packet.Packet ):
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_JOIN
+#----------------------------------------------
+class PacketAdminJoin( Packet ):
 
 	def __init__(self, admin_name: str, admin_password: str, app_version: str ) -> None:
-		super().__init__( packet_type = types.PacketAdminType.ADMIN_PACKET_ADMIN_JOIN )
-
-		self.add_str(admin_password)
-		self.add_str(admin_name)
-		self.add_str(app_version)
+		self.admin_password = admin_password
+		self.admin_name = admin_name
+		self.app_version = app_version
 	
-	def get_admin_name(self):
-		data = self.get_data().split(b'\x00')
-		return data[1].decode()
+	def send_data(self, tcp_socket: socket.socket) -> bool:
 
-	def get_admin_password(self):
-		data = self.get_data().split(b'\x00')
-		return data[0].decode()
+		data = Packet.str_to_bytes(self.admin_password )
+		data += Packet.str_to_bytes(self.admin_name )
+		data += Packet.str_to_bytes(self.app_version )
 
-	def get_app_version(self):
-		data = self.get_data().split(b'\x00')
-		return data[2].decode()
-
-
-class PacketServerWelcome( packet.Packet ):
-
-	def __init__(self, raw_packet: packet.Packet ):
-		if not isinstance(raw_packet, packet.Packet):
-			raise RuntimeError("Expecting value of packet.Packet")
-
-		super().__init__( packet_type=raw_packet.get_type(), packet_data=raw_packet.get_data() )
-
-		print( self.get_data().split(b'\x00'))
+		return Packet.send_data(
+			types.PacketAdminType.ADMIN_PACKET_ADMIN_JOIN, 
+			data, 
+			tcp_socket)
 	
-	def get_server_name(self):
-		return self.get_data().split(b'\x00')[0].decode()
-	
-	def get_server_version(self):
-		return self.get_data().split(b'\x00')[1].decode()
-	
-	# dedicated server | etc
-	def get_server_type(self):
-		return bool(self.get_data().split(b'\x00')[2])
-	
-	# used to be map name
-	def get_game_map_name(self):
-		return self.get_data().split(b'\x00')[3].decode()
-	
-	def get_game_creation_seed(self):
-		return int.from_bytes(self.get_data().split(b'\x00')[4], sys.byteorder, signed=False)
+	def receive_data(self):
+		raise RuntimeError(f"This packet type, {self} can only send data")
 
-	def get_game_start_year(self):
-		days = int.from_bytes(self.get_data().split(b'\x00')[5], sys.byteorder, signed=False)
-		return Date.ConvertDateToYMD(days)
+
+
+#----------------------------------------------
+#		ADMIN_PACKET_SERVER_PROTOCOL
+#----------------------------------------------
+class PacketServerProtocol( Packet ):
+
+	def __init__(self):
+		self.server_name = ''
 	
+	def send_data(self):
+		raise RuntimeError(f"This packet type, {self} can only receive data")
+	
+	def receive_data(self, tcp_socket: socket.socket) -> bool:
+		packet_type, raw_data = Packet.receive_data(tcp_socket)
+
+		if packet_type != types.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL:
+			raise RuntimeError(f"Got {packet_type} when expecting {types.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL}")
+
+
+
+
+#----------------------------------------------
+#		ADMIN_PACKET_SERVER_WELCOME
+#----------------------------------------------
+class PacketServerWelcome( Packet ):
+
+	def __init__(self):
+		pass
+	
+	def send_data(self):
+		raise RuntimeError(f"This packet type, {self} can only receive data")
+	
+	def receive_data(self, tcp_socket: socket.socket) -> bool:
+		packet_type, raw_data = Packet.receive_data(tcp_socket)
+
+		if packet_type != types.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME:
+			raise RuntimeError(f"Got {packet_type} when expecting {types.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME}")
+
+		index = 0
+		length = 0
 		
-	def get_game_landscape(self):
-		return int.from_bytes(self.get_data().split(b'\x00')[6], sys.byteorder, signed=False)
-	
-	def get_game_map_size(self):
-		x = int.from_bytes(self.get_data().split(b'\x00')[7], sys.byteorder)
-		y = int.from_bytes(self.get_data().split(b'\x00')[8], sys.byteorder)
-		return (x, y)
-	
+		self.server_name, length = Packet.get_str_from_bytes( raw_data[index:] )			; index += length
+		self.server_version, length = Packet.get_str_from_bytes(  raw_data[index:] )		; index += length
+		game_type, length = Packet.get_int_from_bytes(  raw_data[index:], 1)			; index += length
+		self.game_type = types.ServerGameType(game_type)
 
-class PacketAdminChat(packet.Packet):
-	def __init__(self, *, chat_type=types.NetworkAction.NETWORK_ACTION_CHAT, packet_data=b''):
-		if not packet_data:
-			super().__init__(packet_type=types.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT)
 
-			self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_COMPANY, 1, separator=b'')
-			self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_CLIENT, 1, separator=b'')
+		self.map_name, length = Packet.get_str_from_bytes(  raw_data[index:] )			; index += length
+		self.generation_seed, length = Packet.get_int_from_bytes(  raw_data[index:], 4)	; index += length
+		self.landscape, length = Packet.get_int_from_bytes(  raw_data[index:], 1)			; index += length
+		self.start_year, length = Packet.get_int_from_bytes(  raw_data[index:], 4)		; index += length
+
+		self.start_year = Date.ConvertDateToYMD( self.start_year ) 
+
+		map_x, length = Packet.get_int_from_bytes(  raw_data[index:], 2)	; index += length
+		map_y, _ = Packet.get_int_from_bytes(  raw_data[index:], 2)
+		self.map_size = (map_x, map_y)
+
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_CHAT
+#----------------------------------------------
+class PacketAdminChat(Packet):
+
+	def is_valid_color( color):
+		if not (color & types.TextColor.TC_IS_PALETTE_COLOUR):
+			return types.TextColor.TC_BEGIN <= color and color < types.TextColor.TC_END
 		
-		else:
-			super.__init__(packet_data=packet_data)
+		return False
 
-	def chat_all(self, message, scope):
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT, 1, separator=b'')
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT, 1, separator=b'')
 
-		self.add_int(0, 4, separator=b'')
-		self.add_str(message, separator=b'')
+	def chat_all_external(self, source, user, message, tcp_socket, *, color = 0):
+		data = b''
+
+		data += Packet.str_to_bytes(source)				# source
+		data += Packet.int_to_bytes(color, 2, separator=b'')	# color
+		data += Packet.str_to_bytes(user)						# user
+		data += Packet.str_to_bytes(message)
+
+		Packet.send_data( types.PacketAdminType.ADMIN_PACKET_ADMIN_EXTERNAL_CHAT, data, tcp_socket)
+
+	def chat_all(self, message, tcp_socket):
+		data = b''
+
+		data += Packet.int_to_bytes(types.NetworkAction.NETWORK_ACTION_CHAT, 1, separator=b'')
+		data += Packet.int_to_bytes(types.DestType.DESTTYPE_BROADCAST, 1, separator=b'')
+		data += Packet.int_to_bytes( 0, 4, separator=b'')
+		data += Packet.str_to_bytes(message)
+
+		Packet.send_data( types.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT, data, tcp_socket)
 
 	
-	def chat_client(self, client_id, message, scope):
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_CLIENT, 1, separator=b'')
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_CLIENT, 1, separator=b'')
+	def chat_client(self, client_id, message, tcp_socket):
+		data = b''
 
-		self.add_int(client_id, 4, separator=b'')
-		self.add_str(message, separator=b'')
+		data += Packet.int_to_bytes(types.NetworkAction.NETWORK_ACTION_CHAT_CLIENT, 1, separator=b'')
+		data += Packet.int_to_bytes(types.DestType.DESTTYPE_CLIENT, 1, separator=b'')
+		data += Packet.int_to_bytes(client_id, 4, separator=b'')
+		data += Packet.str_to_bytes(message)
+
+		Packet.send_data( types.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT, data, tcp_socket)
 
 
-	def chat_company(self, company_id, message, scope):
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_COMPANY, 1, separator=b'')
-		self.add_int(types.NetworkAction.NETWORK_ACTION_CHAT_COMPANY, 1, separator=b'')
+	def chat_company(self, company_id, message, tcp_socket):
+		data = b''
 
-		self.add_int(company_id, 4, separator=b'')
-		self.add_str(message, separator=b'')
+		data += Packet.int_to_bytes(types.NetworkAction.NETWORK_ACTION_CHAT_COMPANY, 1, separator=b'')
+		data += Packet.int_to_bytes(types.DestType.DESTTYPE_TEAM, 1, separator=b'')
+		data += Packet.int_to_bytes(company_id, 4, separator=b'')
+		data += Packet.str_to_bytes(message)
+
+		Packet.send_data( types.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT, data, tcp_socket)
+
+
+
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_POLL
+#----------------------------------------------
+class PacketAdminPoll(Packet):
+
+	def poll(self, update_Type: types.AdminUpdateType, tcp_socket, *, extra_data:int = 0xFFFFFFFF):
+		data = b''
+
+		data += Packet.int_to_bytes( update_Type, 1, separator=b'')
+		data += Packet.int_to_bytes( extra_data, 4, separator=b'')
+
+		Packet.send_data( types.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, data, tcp_socket)
+
+
+#----------------------------------------------
+#		DUMMY_PACKET
+#----------------------------------------------
+
+class DummyPacket(Packet):
+
+	def receive_data(self, tcp_socket) -> tuple:
+		self.packet_type, self.data =  Packet.receive_data(tcp_socket)
+		self.packet_type = types.PacketAdminType(self.packet_type)
+	
+	def get_data(self):
+		return self.data
+
+	def get_type(self):
+		return self.packet_type
+		
