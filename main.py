@@ -2,15 +2,17 @@
 
 from threading import Thread
 
-from openttd.tcpsocket import TCPSocket
+from openttd.openttd import OpenTTD
 
-sok = TCPSocket('127.0.0.1', 3977)
-#sok = TCPSocket('google.com', 80)
-sok.connect()
-sok.reconnect()
+game = OpenTTD('127.0.0.1', 3977, "Admin", '!@Admin123')
+game.join()
+game.chat_all("All_chat")
+game.chat_team(255, "Team_chat")
+game.chat_client(3, "Client_chat")
+game.chat_external("Discord", "admin", "external", 0)
 
 
-sok.receive_data()
+
 
 # def OpenTTD_Main():
 

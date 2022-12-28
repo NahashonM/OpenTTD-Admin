@@ -2,6 +2,7 @@
 
 import sys
 import openttd.util as util
+import openttd.openttdtypes as ottd
 
 
 #---------------------------------
@@ -76,7 +77,7 @@ def ConvertYMDToDate(year, month, day):
 	date = year * DAYS_IN_YEAR + num_4_yr * DAYS_IN_4_YEARS + num_100_yrs * DAYS_IN_100_YEARS + num_400_yrs * DAYS_IN_400_YEARS
 
 	for i in range(0, month - 1):
-		date += list(util.MONTH_DAYS.values())[i]
+		date += list(ottd.MONTH_DAYS.values())[i]
 
 		if is_leap_yr and i == 1:
 			date += 1
@@ -111,11 +112,11 @@ def ConvertDateToYMD(date):
 
 	while date > 0:
 		month += 1
-		date -= list(util.MONTH_DAYS.values())[ month - 1]
+		date -= list(ottd.MONTH_DAYS.values())[ month - 1]
 
 		if is_leap and month == 2:
 			date -= 1
 	
-	date = list(util.MONTH_DAYS.values())[ month - 1] + date
+	date = list(ottd.MONTH_DAYS.values())[ month - 1] + date
 
 	return year, month, date

@@ -1,9 +1,8 @@
 
-from dates import Date
-
 import openttd.openttdtypes as ottd
 import openttd.entities as entities
-
+import openttd.packets as pkts
+import openttd.util as util
 from openttd.tcpsocket import TCPSocket
 
 class OpenTTD:
@@ -11,35 +10,38 @@ class OpenTTD:
 		self.admin_name = admin_name
 		self.admin_password = admin_password
 
-		self.sock = TCPSocket( server_ip, server_admin_port)
-		self.sock.connect()
+		self.server_ip = server_ip
+		self.server_port = server_admin_port
+	
+	def __connect__(self, reconnect = False):
+		if reconnect:
+			return self.sock.reconnect()
+
+		self.sock = TCPSocket( self.server_ip, self.server_port)
+		return self.sock.connect()
 	
 	def join(self):
-		join_pkt = entities.()
+		self.__connect__()
 
+		join_pkt = pkts.PacketAdminJoin(self.admin_name, self.admin_password, ottd.ADMIN_CLIENT_VERSION)
+		self.sock.send_data(join_pkt.to_bytes())
 
-	def connect(self):
+		raw_data = self.sock.receive_data()
+		protocol_pkt = pkts.PacketServerProtocol( raw_data )
 
-		self.client_sock.connect((self.server_ip, self.server_admin_port))
-
-		join_packet = ottd.PacketAdminJoin(self.admin_name, self.admin_password, types.ADMIN_CLIENT_VERSION)
-		join_packet.send_data(self.client_sock)
-
-		protocol_packet = PacketServerProtocol()
-		protocol_packet.receive_data(self.client_sock)
-
-		welcome_packet = PacketServerWelcome()
-		welcome_packet.receive_data( self.client_sock)
+		raw_data = self.sock.receive_data()
+		welcome_pkt = pkts.PacketServerWelcome(  raw_data  )
 
 		print( "----------------------------------")
-		print( f"Connected to server {welcome_packet.server_name} ")
-		print( f"version: {welcome_packet.server_version}, map: {welcome_packet.map_size}")
-		print( f"starting year: {welcome_packet.start_year}")
-		print( "game type: ", welcome_packet.game_type)
+		print( f"Connected to server {welcome_pkt.server_name} ")
+		print( f"version: {welcome_pkt.server_version}, map: {welcome_pkt.map_size}")
+		print( f"starting year: {welcome_pkt.start_year}")
+		print( f"is_dedicated: {welcome_pkt.is_dedicated}")
 		print( "----------------------------------\n")
 	
+	
 
-	def poll_info(self, info_type, receive_type: types.PacketAdminType, info_id):
+	def poll_info(self, info_type, receive_type: ottd.PacketAdminType, info_id):
 		poll_packet = PacketAdminPoll()
 		poll_packet.poll(info_type, self.client_sock, extra_data=info_id)
 
@@ -76,8 +78,8 @@ class OpenTTD:
 
 	def poll_current_date(self):
 		data = self.poll_info(
-			types.AdminUpdateType.ADMIN_UPDATE_DATE,
-			types.PacketAdminType.ADMIN_PACKET_SERVER_DATE,
+			ottd.AdminUpdateType.ADMIN_UPDATE_DATE,
+			ottd.PacketAdminType.ADMIN_PACKET_SERVER_DATE,
 			0
 			)
 		data = Packet.bytes_to_int(data[:4])
@@ -85,8 +87,8 @@ class OpenTTD:
 
 	def poll_client_info(self, client_id=0xFFFFFFFF):
 		data = self.poll_info(
-			types.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO,
-			types.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO,
+			ottd.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO,
+			ottd.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO,
 			client_id
 			)
 
@@ -94,8 +96,8 @@ class OpenTTD:
 	
 	def poll_company_info(self, company_id=0xFFFFFFFF):
 		data = self.poll_info(
-			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO,
-			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO,
+			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO,
+			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO,
 			company_id
 			)
 
@@ -103,8 +105,8 @@ class OpenTTD:
 
 	def poll_company_economy(self, company_id=0xFFFFFFFF):
 		data = self.poll_info(
-			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY,
-			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY,
+			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY,
+			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY,
 			company_id
 			)
 
@@ -112,31 +114,28 @@ class OpenTTD:
 
 	def poll_company_stats(self, company_id=0xFFFFFFFF):
 		data = self.poll_info(
-			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS,
-			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS,
+			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS,
+			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS,
 			company_id
 			)
 
 		return self.parse_info_from_bytes(entities.CompanyStats, data)
-
+	
+	def chat_all(self, message):
+		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.ALL, message)
+		self.sock.send_data(msg.to_bytes())
+	
+	def chat_team(self, company_id, message):
+		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.COMPANY, message, to_id=company_id)
+		self.sock.send_data(msg.to_bytes())
+	
+	def chat_client(self, client_id, message):
+		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.CLIENT, message, to_id=client_id)
+		self.sock.send_data(msg.to_bytes())
 
 	def chat_external(self, source, user, message, color = 0):
-		chat = PacketAdminChat()
-		chat.chat_all_external(source, user, message, self.client_sock, color=color)
-
-	def chat_all(self, message):
-		chat = PacketAdminChat()
-		chat.chat_all(message, self.client_sock)
-		
-	def chat_client(self, client_id, message):
-		chat = PacketAdminChat()
-		chat.chat_client( client_id, message, self.client_sock)
-
-	def chat_company(self, company_id, message):
-		chat = PacketAdminChat()
-		chat.chat_company( company_id, message, self.client_sock)
-	
-
+		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.EXTERNAL, message, to_id=3, app=source, app_user=user, color=color)
+		self.sock.send_data(msg.to_bytes())
 
 	def disconnect(self):
 		pass
