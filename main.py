@@ -12,36 +12,39 @@ game.chat_client(3, "Client_chat")
 game.chat_external("Discord", "admin", "external", 0)
 
 
-print( game.poll_current_date() )
-print("--------------------")
+print("server ping: ", game.ping_server())
 
-data = game.poll_client_info()
-for d in data:
-	print( d.id, d.address ,d.name, d.lang,d.join_date,d.company)
-print("--------------------")
+# print( game.poll_current_date() )
+# print("--------------------")
 
-data = game.poll_company_info()
-for d in data:
-	print( d.id, d.name, d.president, d.color,
-			d.has_password, d.start_date, d.is_ai, d.quaters_bankrupt, d.share_owners)
-print("--------------------")
+# data = game.poll_client_info()
+# for d in data:
+# 	print( d.id, d.address ,d.name, d.lang,d.join_date,d.company)
+# print("--------------------")
 
-data = game.poll_company_economy()
-for d in data:
-	print(d.id, d.money, d.loan, d.income, d.delivered_cargo, d.quarters)
-print("--------------------")
+# data = game.poll_company_info()
+# for d in data:
+# 	print( d.id, d.name, d.president, d.color,
+# 			d.has_password, d.start_date, d.is_ai, d.quaters_bankrupt, d.share_owners)
+# print("--------------------")
 
-data = game.poll_company_stats()
-for d in data:
-	print(d.id, d.vehicles, d.stations)
-print("--------------------")
+# data = game.poll_company_economy()
+# for d in data:
+# 	print(d.id, d.money, d.loan, d.income, d.delivered_cargo, d.quarters)
+# print("--------------------")
+
+# data = game.poll_company_stats()
+# for d in data:
+# 	print(d.id, d.vehicles, d.stations)
+# print("--------------------")
 
 
-print( game.run_rcon_cmd("ls") )
-print( game.run_rcon_cmd("help") )
-print( game.run_rcon_cmd("companies") )
-print( game.run_rcon_cmd("clients") )
-print( game.run_rcon_cmd("set yapf.rail_firstred_twoway_eol true") )
+# print( game.run_rcon_cmd("ls") )
+# print( game.run_rcon_cmd("help") )
+# print( game.run_rcon_cmd("companies") )
+# print( game.run_rcon_cmd("clients") )
+# print( game.run_rcon_cmd("set yapf.rail_firstred_twoway_eol true") )
+
 
 # 	print("Thread exit")
 

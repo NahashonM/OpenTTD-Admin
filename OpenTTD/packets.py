@@ -28,7 +28,7 @@ class PacketAdminJoin:
 #		ADMIN_PACKET_SERVER_PROTOCOL
 #----------------------------------------------
 class PacketServerProtocol:
-	
+
 	def __init__(self, raw_data):
 		self.parse_from_bytes( raw_data[3:] )
 
@@ -176,14 +176,12 @@ class PacketAdminGameScript:
 #		ADMIN_PACKET_ADMIN_PING	
 #----------------------------------------------
 class PacketAdminPing:
-	def __init__(self, update_type: ottd.AdminUpdateType, *, extra_data:int = 0xFFFFFFFF):
-		self.update_type = update_type
-		self.extra_data = extra_data
+	def __init__(self):
+		pass
 	
 	def to_bytes(self):
-		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, 1, separator=b'')
-		data += util.int_to_bytes( self.update_type, 1, separator=b'')
-		data += util.int_to_bytes( self.extra_data, 4, separator=b'')
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_PING, 1, separator=b'')
+		data += util.int_to_bytes( 0, 4, separator=b'')
 
 		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
 		return length + data

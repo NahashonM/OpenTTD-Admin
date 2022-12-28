@@ -82,6 +82,15 @@ class OpenTTD:
 	def disconnect(self):
 		pass
 
+	def ping_server(self):
+		ping_pkt = pkts.PacketAdminPing()
+		self.sock.send_data( ping_pkt.to_bytes() )
+
+		res = self.__network_receive__( ottd.PacketAdminType.ADMIN_PACKET_SERVER_PONG)
+		if len(res) > 3:
+			return True
+		
+		return False
 
 	def poll_current_date(self):
 		data = self.__poll_info__(  ottd.AdminUpdateType.ADMIN_UPDATE_DATE, 
@@ -172,6 +181,7 @@ class OpenTTD:
 			res += s + '\n'
 		
 		return res
+
 
 
 
