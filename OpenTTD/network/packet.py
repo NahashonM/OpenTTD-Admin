@@ -60,7 +60,7 @@ class Packet(socket.socket):
 	
 
 	def receive_data(tcp_socket) -> tuple:
-
+		
 		buffer = b''
 		try:
 			while True:
@@ -68,8 +68,10 @@ class Packet(socket.socket):
 				buffer += tcp_socket.recv(1024)
 
 				size_fetched = len(buffer)
-				message_size = Packet.bytes_to_int(buffer[:2], False)
-				
+				message_size = Packet.bytes_to_int(buffer[:2])
+
+				print( message_size, size_fetched, buffer)
+
 				if size_fetched == 0 or size_fetched >=  message_size:
 					break
 

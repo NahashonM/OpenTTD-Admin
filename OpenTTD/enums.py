@@ -2,7 +2,9 @@ from enum import IntEnum
 
 ADMIN_CLIENT_VERSION = 'v0.0.1'
 
-INVALID_PACKET 				=255
+MAX_COMPANY_SHARE_OWNERS	= 4
+ECONOMY_INFO_QUARTERS		= 2
+INVALID_PACKET 				= 255
 
 class PacketAdminType(IntEnum):
 	ADMIN_PACKET_ADMIN_JOIN				=0 	# The admin announces and authenticates itself to the server.

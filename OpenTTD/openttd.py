@@ -7,7 +7,10 @@ from OpenTTD.network.packet_types import PacketServerProtocol
 from OpenTTD.network.packet_types import PacketAdminPoll
 from OpenTTD.network.packet_types import DummyPacket
 from OpenTTD.network.packet import Packet
-from OpenTTD.entities import Client
+
+from OpenTTD.date import Date
+
+import OpenTTD.entities as entities
 import OpenTTD.enums as types
 import time
 
@@ -45,47 +48,87 @@ class OpenTTD:
 		print( f"starting year: {welcome_packet.start_year}")
 		print( "game type: ", welcome_packet.game_type)
 		print( "----------------------------------\n")
-		
-
-	def server_listen(self):
-		d = DummyPacket()
-		d.receive_data(self.client_sock)
-		return d.data
 	
 
-	def parse_client_infor_from_bytes(self, bytes_data):
-		i = 0
-		clients = list()
-		while i < len(bytes_data):
-			client = Client()
-			i += client.parse_from_bytearray(bytes_data[i:])
-
-			clients.append(client)
-		
-		return clients
-	
-
-	def poll_client_infor(self, client_id=0xFFFFFFFF):
+	def poll_info(self, info_type, receive_type: types.PacketAdminType, info_id):
 		poll_packet = PacketAdminPoll()
-		poll_packet.poll(types.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, self.client_sock, extra_data=client_id)
+		poll_packet.poll(info_type, self.client_sock, extra_data=info_id)
 
 		data = b''
 		d = DummyPacket()
 
 		i = 1
-		if client_id == 0xFFFFFFFF:
+		if info_id == 0xFFFFFFFF:
 			i = 0
 
 		while i < 2:
 			d.receive_data(self.client_sock)
-
-			if d.get_type() != types.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO:
-				raise RuntimeError(f"Got {d.get_type()} when expecting PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO")
-			
-			data += d.get_data()
+			data += d.get_data() + b'000'
 			i += 1
+		
+		if d.get_type() != receive_type:
+			print(d.get_data())
+			raise RuntimeError(f"Got {d.get_type()} when expecting {receive_type}")
 
-		return self.parse_client_infor_from_bytes(data)
+
+		return data
+	
+	def parse_info_from_bytes(self, info_class, bytes_data):
+		i = 0
+		info_list = list()
+		while i < len(bytes_data):
+			infor_inst = info_class()
+			i += infor_inst.parse_from_bytearray(bytes_data[i:])
+
+			info_list.append(infor_inst)
+		
+		return info_list
+
+
+	def poll_current_date(self):
+		data = self.poll_info(
+			types.AdminUpdateType.ADMIN_UPDATE_DATE,
+			types.PacketAdminType.ADMIN_PACKET_SERVER_DATE,
+			0
+			)
+		data = Packet.bytes_to_int(data[:4])
+		return Date.ConvertDateToYMD(data)
+
+	def poll_client_info(self, client_id=0xFFFFFFFF):
+		data = self.poll_info(
+			types.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO,
+			types.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO,
+			client_id
+			)
+
+		return self.parse_info_from_bytes(entities.Client, data)
+	
+	def poll_company_info(self, company_id=0xFFFFFFFF):
+		data = self.poll_info(
+			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO,
+			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO,
+			company_id
+			)
+
+		return self.parse_info_from_bytes(entities.Company, data)
+
+	def poll_company_economy(self, company_id=0xFFFFFFFF):
+		data = self.poll_info(
+			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY,
+			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY,
+			company_id
+			)
+
+		return self.parse_info_from_bytes(entities.CompanyEconomy, data)
+
+	def poll_company_stats(self, company_id=0xFFFFFFFF):
+		data = self.poll_info(
+			types.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS,
+			types.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS,
+			company_id
+			)
+
+		return self.parse_info_from_bytes(entities.CompanyStats, data)
 
 
 	def chat_external(self, source, user, message, color = 0):
