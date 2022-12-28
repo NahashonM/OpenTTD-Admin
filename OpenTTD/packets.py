@@ -129,22 +129,23 @@ class PacketAdminChat:
 
 		return length + data
 
-	
-
 
 
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_POLL
 #----------------------------------------------
 class PacketAdminPoll:
+	def __init__(self, update_type: ottd.AdminUpdateType, *, extra_data:int = 0xFFFFFFFF):
+		self.update_type = update_type
+		self.extra_data = extra_data
+	
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, 1, separator=b'')
+		data += util.int_to_bytes( self.update_type, 1, separator=b'')
+		data += util.int_to_bytes( self.extra_data, 4, separator=b'')
 
-	def poll(self, update_Type: ottd.AdminUpdateType, tcp_socket, *, extra_data:int = 0xFFFFFFFF):
-		data = b''
-
-		data += util.int_to_bytes( update_Type, 1, separator=b'')
-		data += util.int_to_bytes( extra_data, 4, separator=b'')
-
-		util.send_data( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, data, tcp_socket)
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
 
 
 #----------------------------------------------
@@ -153,13 +154,15 @@ class PacketAdminPoll:
 
 class DummyPacket:
 
-	def receive_data(self, tcp_socket) -> tuple:
-		self.packet_type, self.data =  util.receive_data(tcp_socket)
-		self.packet_type = ottd.PacketAdminType(self.packet_type)
+	def __init__(self, raw_data: bytearray) -> None:
+		self.data = raw_data
 	
+	def parse_from_bytes(self):
+		pass
+
 	def get_data(self):
 		return self.data
 
 	def get_type(self):
-		return self.packet_type
+		return ottd.PacketAdminType(self.data[2])
 		

@@ -47,6 +47,10 @@ def get_str_from_bytes(byte_value: bytearray) -> bool:
 	return str_value, len(str_value) + 1
 
 
+def get_type_from_packet(raw_bytes):
+	return ottd.PacketAdminType( raw_bytes[2] )
+
+
 
 DAYS_IN_YEAR = 365
 LEAP_DAYS_IN_100_YEARS = 24

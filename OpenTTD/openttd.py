@@ -39,88 +39,83 @@ class OpenTTD:
 		print( f"is_dedicated: {welcome_pkt.is_dedicated}")
 		print( "----------------------------------\n")
 	
-	
 
-	def poll_info(self, info_type, receive_type: ottd.PacketAdminType, info_id):
-		poll_packet = PacketAdminPoll()
-		poll_packet.poll(info_type, self.client_sock, extra_data=info_id)
+	def __poll_info__(self, info_type, extra_info = 0):
 
-		data = b''
-		d = DummyPacket()
+		poll_pkt = pkts.PacketAdminPoll(info_type, extra_data=extra_info)
+		self.sock.send_data( poll_pkt.to_bytes() )
 
-		i = 1
-		if info_id == 0xFFFFFFFF:
-			i = 0
-
-		while i < 2:
-			d.receive_data(self.client_sock)
-			data += d.get_data() + b'000'
-			i += 1
+		large_data = False
+		if extra_info == ottd.MAX_UINT:
+			large_data = True
 		
-		if d.get_type() != receive_type:
-			print(d.get_data())
-			raise RuntimeError(f"Got {d.get_type()} when expecting {receive_type}")
-
-
-		return data
+		return self.sock.receive_data(large_data=large_data)
 	
-	def parse_info_from_bytes(self, info_class, bytes_data):
+	def __parse_info_from_bytes__(self, raw_data, info_class):
 		i = 0
 		info_list = list()
-		while i < len(bytes_data):
+		while i < len(raw_data):
 			infor_inst = info_class()
-			i += infor_inst.parse_from_bytearray(bytes_data[i:])
+			i += infor_inst.parse_from_bytearray(raw_data[i:])
 
 			info_list.append(infor_inst)
 		
 		return info_list
+	
 
 
 	def poll_current_date(self):
-		data = self.poll_info(
-			ottd.AdminUpdateType.ADMIN_UPDATE_DATE,
-			ottd.PacketAdminType.ADMIN_PACKET_SERVER_DATE,
-			0
-			)
-		data = Packet.bytes_to_int(data[:4])
-		return Date.ConvertDateToYMD(data)
+		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_DATE)
 
+		if util.get_type_from_packet(data) != ottd.PacketAdminType.ADMIN_PACKET_SERVER_DATE:
+			raise RuntimeError( f"Got {util.get_type_from_packet(data).name} when expecting ADMIN_PACKET_SERVER_DATE")
+		
+		data = util.bytes_to_int(data[3:])
+
+		return util.ConvertDateToYMD(data)
+	
 	def poll_client_info(self, client_id=0xFFFFFFFF):
-		data = self.poll_info(
-			ottd.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO,
-			ottd.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO,
-			client_id
-			)
+		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, extra_info=client_id)
 
-		return self.parse_info_from_bytes(entities.Client, data)
+		if len(data) == 0: return list()
+		
+		if util.get_type_from_packet(data) != ottd.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO:
+			raise RuntimeError( f"Got {util.get_type_from_packet(data).name} when expecting ADMIN_PACKET_SERVER_CLIENT_INFO")
+		
+		return self.__parse_info_from_bytes__(data[3:], entities.Client)
 	
 	def poll_company_info(self, company_id=0xFFFFFFFF):
-		data = self.poll_info(
-			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO,
-			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO,
-			company_id
-			)
+		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO, extra_info=company_id)
 
-		return self.parse_info_from_bytes(entities.Company, data)
+		if len(data) == 0: return list()
 
-	def poll_company_economy(self, company_id=0xFFFFFFFF):
-		data = self.poll_info(
-			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY,
-			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY,
-			company_id
-			)
-
-		return self.parse_info_from_bytes(entities.CompanyEconomy, data)
-
-	def poll_company_stats(self, company_id=0xFFFFFFFF):
-		data = self.poll_info(
-			ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS,
-			ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS,
-			company_id
-			)
-
-		return self.parse_info_from_bytes(entities.CompanyStats, data)
+		if util.get_type_from_packet(data) != ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO:
+			raise RuntimeError( f"Got {util.get_type_from_packet(data).name} when expecting ADMIN_PACKET_SERVER_COMPANY_INFO")
+		
+		return self.__parse_info_from_bytes__(data[3:], entities.Company)
 	
+	def poll_company_economy(self, company_id=0xFFFFFFFF):
+		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY, extra_info=company_id)
+
+		if len(data) == 0: return list()
+
+		if util.get_type_from_packet(data) != ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY:
+			raise RuntimeError( f"Got {util.get_type_from_packet(data).name} when expecting ADMIN_PACKET_SERVER_COMPANY_ECONOMY")
+		
+		return self.__parse_info_from_bytes__(data[3:], entities.CompanyEconomy)
+		
+	def poll_company_stats(self, company_id=0xFFFFFFFF):
+		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS, extra_info=company_id)
+
+		if len(data) == 0: return list()
+
+		if util.get_type_from_packet(data) != ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS:
+			raise RuntimeError( f"Got {util.get_type_from_packet(data).name} when expecting ADMIN_PACKET_SERVER_COMPANY_STATS")
+		
+		return self.__parse_info_from_bytes__(data[3:], entities.CompanyStats)
+
+	
+
 	def chat_all(self, message):
 		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.ALL, message)
 		self.sock.send_data(msg.to_bytes())

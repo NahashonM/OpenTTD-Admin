@@ -12,41 +12,29 @@ game.chat_client(3, "Client_chat")
 game.chat_external("Discord", "admin", "external", 0)
 
 
+print( game.poll_current_date() )
+print("--------------------")
 
+data = game.poll_client_info()
+for d in data:
+	print( d.id, d.address ,d.name, d.lang,d.join_date,d.company)
+print("--------------------")
 
-# def OpenTTD_Main():
+data = game.poll_company_info()
+for d in data:
+	print( d.id, d.name, d.president, d.color,
+			d.has_password, d.start_date, d.is_ai, d.quaters_bankrupt, d.share_owners)
+print("--------------------")
 
-# 	data = game.poll_client_info()
+data = game.poll_company_economy()
+for d in data:
+	print(d.id, d.money, d.loan, d.income, d.delivered_cargo, d.quarters)
+print("--------------------")
 
-# 	for d in data:
-# 		print( d.id, d.address ,d.name, d.lang,d.join_date,d.company)
-
-# 	# print("--------------------")
-
-# 	# data = game.poll_company_info()
-# 	# for d in data:
-# 	# 	print( d.id, d.name, d.president, d.color,
-# 	# 		d.has_password, d.start_date, d.is_ai, d.quaters_bankrupt,
-# 	# 		d.share_owners)
-
-# 	# # print("--------------------")
-
-# 	# # data = game.poll_current_date()
-# 	# # print(data)
-
-# 	# # print("--------------------")
-
-# 	# # data = game.poll_company_economy()
-# 	# # for d in data:
-# 	# # 	print(d.id, d.money, d.loan, d.income, d.delivered_cargo, d.quarters)
-
-# 	# # print("--------------------")
-
-# 	# data = game.poll_company_stats()
-# 	# for d in data:
-# 	# 	print(d.id, d.vehicles, d.stations)
-
-# 	# print("--------------------")
+data = game.poll_company_stats()
+for d in data:
+	print(d.id, d.vehicles, d.stations)
+print("--------------------")
 
 
 # 	print("Thread exit")
