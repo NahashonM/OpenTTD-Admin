@@ -1,39 +1,28 @@
 
+from dates import Date
 
-from OpenTTD.network.packet_types import PacketAdminJoin
-from OpenTTD.network.packet_types import PacketServerWelcome
-from OpenTTD.network.packet_types import PacketAdminChat
-from OpenTTD.network.packet_types import PacketServerProtocol
-from OpenTTD.network.packet_types import PacketAdminPoll
-from OpenTTD.network.packet_types import DummyPacket
-from OpenTTD.network.packet import Packet
+import openttd.openttdtypes as ottd
+import openttd.entities as entities
 
-from OpenTTD.date import Date
-
-import OpenTTD.entities as entities
-import OpenTTD.enums as types
-import time
-
-
-import socket
+from openttd.tcpsocket import TCPSocket
 
 class OpenTTD:
 	def __init__(self, server_ip, server_admin_port, admin_name, admin_password) -> None:
-		self.server_ip = server_ip
-		self.server_admin_port = server_admin_port
-
 		self.admin_name = admin_name
 		self.admin_password = admin_password
 
-		self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sock = TCPSocket( server_ip, server_admin_port)
+		self.sock.connect()
+	
+	def join(self):
+		join_pkt = entities.()
 
 
 	def connect(self):
 
 		self.client_sock.connect((self.server_ip, self.server_admin_port))
-		
-		join_packet = PacketAdminJoin(self.admin_name, self.admin_password, types.ADMIN_CLIENT_VERSION)
+
+		join_packet = ottd.PacketAdminJoin(self.admin_name, self.admin_password, types.ADMIN_CLIENT_VERSION)
 		join_packet.send_data(self.client_sock)
 
 		protocol_packet = PacketServerProtocol()
