@@ -28,14 +28,8 @@ class PacketAdminJoin:
 #		ADMIN_PACKET_SERVER_PROTOCOL
 #----------------------------------------------
 class PacketServerProtocol:
-
+	
 	def __init__(self, raw_data):
-
-		data_type = ottd.PacketAdminType(raw_data[2])
-
-		if data_type != ottd.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL:
-			raise RuntimeError(f"Got {data_type.name} when expecting {ottd.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL.name}")
-		
 		self.parse_from_bytes( raw_data[3:] )
 
 	def parse_from_bytes(self, raw_data):
@@ -146,6 +140,54 @@ class PacketAdminPoll:
 
 		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
 		return length + data
+	
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_RCON
+#----------------------------------------------
+class PacketAdminRCON:
+	def __init__(self, rcon_cmd: str):
+		self.rcon_cmd = rcon_cmd
+	
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_RCON, 1, separator=b'')
+		data += util.str_to_bytes( self.rcon_cmd )
+
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
+	
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_GAMESCRIPT
+#----------------------------------------------
+class PacketAdminGameScript:
+	def __init__(self, update_type: ottd.AdminUpdateType, *, extra_data:int = 0xFFFFFFFF):
+		self.update_type = update_type
+		self.extra_data = extra_data
+	
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, 1, separator=b'')
+		data += util.int_to_bytes( self.update_type, 1, separator=b'')
+		data += util.int_to_bytes( self.extra_data, 4, separator=b'')
+
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_PING	
+#----------------------------------------------
+class PacketAdminPing:
+	def __init__(self, update_type: ottd.AdminUpdateType, *, extra_data:int = 0xFFFFFFFF):
+		self.update_type = update_type
+		self.extra_data = extra_data
+	
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, 1, separator=b'')
+		data += util.int_to_bytes( self.update_type, 1, separator=b'')
+		data += util.int_to_bytes( self.extra_data, 4, separator=b'')
+
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
+
 
 
 #----------------------------------------------

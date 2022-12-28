@@ -116,3 +116,31 @@ class CompanyStats:
 
 		return index
 
+
+# class RCONResult:
+# 	def __init__(self) ->None:
+# 		pass
+
+# 	def parse_from_bytearray(self, raw_data: bytearray):
+# 		index = 0
+# 		length = 0
+
+# 		self.value, length = util.get_str_from_bytes( raw_data[index:])			; index += length
+# 		_, length = util.get_int_from_bytes( raw_data[index:], 5)			; index += length
+		
+# 		return index
+
+
+class RCONResult:
+	def __init__(self) ->None:
+		pass
+
+	def parse_from_bytearray(self, raw_data: bytearray):
+		index = 0
+		length = 0
+
+		self.value, length = util.get_str_from_bytes( raw_data[index:])			; index += length
+		_, length = util.get_int_from_bytes( raw_data[index:], 5)			; index += length
+		
+		return index
+		

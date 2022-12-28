@@ -37,6 +37,12 @@ for d in data:
 print("--------------------")
 
 
+print( game.run_rcon_cmd("ls") )
+print( game.run_rcon_cmd("help") )
+print( game.run_rcon_cmd("companies") )
+print( game.run_rcon_cmd("clients") )
+print( game.run_rcon_cmd("set yapf.rail_firstred_twoway_eol true") )
+
 # 	print("Thread exit")
 
 
