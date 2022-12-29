@@ -259,6 +259,10 @@ class OpenTTD:
 	def get_updates(self) -> list:
 
 		updates = list()
+
+		if not self.update_sock.is_locked():
+			return updates
+
 		tmp = self.update_sock.peek()
 
 		while len(tmp):
