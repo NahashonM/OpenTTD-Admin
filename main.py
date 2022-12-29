@@ -52,7 +52,6 @@ print("server ping: ", game.ping_server())
 # game.register_company_economy_updates()
 
 # game.register_company_stats_updates()
-game.register_console_updates()
 # game.register_cmd_logging_updates()
 # game.register_gamescript_updates()
 

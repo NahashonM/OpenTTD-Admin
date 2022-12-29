@@ -244,8 +244,8 @@ class OpenTTD:
 	def register_console_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
 		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CONSOLE, frequency)
 	
-	# def register_cmd_names_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-	# 	return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CMD_NAMES, frequency)
+	def register_cmd_names_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CMD_NAMES, frequency)
 	
 	def register_cmd_logging_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
 		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CMD_LOGGING, frequency)
