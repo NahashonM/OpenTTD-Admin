@@ -28,15 +28,23 @@ class TCPSocket:
 
 
 	def disconnect(self):
+
 		if hasattr(self, 'sock'):
 			try:
 				self.sock.sendall(b'0')
 				self.sock.shutdown(socket.SHUT_RDWR)
+
+				self.lock.release()
 			except:
 				pass
 			
 			self.sock.close()
+		
+	
 
+	def is_locked(self) -> bool:
+		return self.lock.locked()
+		
 	
 	def send_data(self, data: bytearray) -> bool:
 

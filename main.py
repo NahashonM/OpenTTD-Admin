@@ -1,7 +1,7 @@
 
 
 from threading import Thread
-
+import time
 from openttd.openttd import OpenTTD
 
 game = OpenTTD('127.0.0.1', 3977, "Admin", '!@Admin123')
@@ -45,6 +45,24 @@ print("server ping: ", game.ping_server())
 # print( game.run_rcon_cmd("clients") )
 # print( game.run_rcon_cmd("set yapf.rail_firstred_twoway_eol true") )
 
+# game.register_date_updates()
+# game.register_chat_updates()
+# game.register_client_info_updates()
+# game.register_company_info_updates()
+# game.register_company_economy_updates()
+
+# game.register_company_stats_updates()
+game.register_console_updates()
+# game.register_cmd_logging_updates()
+# game.register_gamescript_updates()
+
+i = 0
+while i < 20:
+	print( game.get_updates() )
+	time.sleep(2)
+	i += 1
+
+game.leave()
 
 # 	print("Thread exit")
 

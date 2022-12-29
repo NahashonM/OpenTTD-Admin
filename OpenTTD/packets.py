@@ -23,51 +23,35 @@ class PacketAdminJoin:
 
 		return length + data
 
-
 #----------------------------------------------
-#		ADMIN_PACKET_SERVER_PROTOCOL
+#		ADMIN_PACKET_ADMIN_PING	
 #----------------------------------------------
-class PacketServerProtocol:
-
-	def __init__(self, raw_data):
-		self.parse_from_bytes( raw_data[3:] )
-
-	def parse_from_bytes(self, raw_data):
+class PacketAdminPing:
+	def __init__(self):
 		pass
-
-
-#----------------------------------------------
-#		ADMIN_PACKET_SERVER_WELCOME
-#----------------------------------------------
-class PacketServerWelcome:
-
-	def __init__(self, raw_data):
-
-		data_type = ottd.PacketAdminType(raw_data[2])
-
-		if data_type != ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME:
-			raise RuntimeError(f"Got {data_type.name} when expecting {ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME.name}")
-		
-		self.parse_from_bytes( raw_data[3:] )
-
 	
-	def parse_from_bytes(self, raw_data) -> bool:
-		index = 0
-		length = 0
-		
-		self.server_name, length = util.get_str_from_bytes( raw_data[index:] )			; index += length
-		self.server_version, length = util.get_str_from_bytes(  raw_data[index:] )		; index += length
-		self.is_dedicated = util.get_bool_from_bytes( raw_data[index:], 1)				; index += length
-		self.map_name, length = util.get_str_from_bytes(  raw_data[index:] )			; index += length
-		self.generation_seed, length = util.get_int_from_bytes(  raw_data[index:], 4)	; index += length
-		self.landscape, length = util.get_int_from_bytes(  raw_data[index:], 1)			; index += length
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_PING, 1, separator=b'')
+		data += util.int_to_bytes( 0, 4, separator=b'')
 
-		self.start_year, length = util.get_int_from_bytes(  raw_data[index:], 4)		; index += length
-		self.start_year = util.ConvertDateToYMD( self.start_year ) 
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
 
-		map_x, length = util.get_int_from_bytes(  raw_data[index:], 2)	; index += length
-		map_y, _ = util.get_int_from_bytes(  raw_data[index:], 2)
-		self.map_size = (map_x, map_y)
+
+#----------------------------------------------
+#		ADMIN_PACKET_ADMIN_PING	
+#----------------------------------------------
+class PacketAdminQuit:
+	def __init__(self):
+		pass
+	
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_QUIT, 1, separator=b'')
+
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
+
+
 
 
 #----------------------------------------------
@@ -155,33 +139,19 @@ class PacketAdminRCON:
 
 		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
 		return length + data
-	
+
+
+
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_GAMESCRIPT
 #----------------------------------------------
 class PacketAdminGameScript:
-	def __init__(self, update_type: ottd.AdminUpdateType, *, extra_data:int = 0xFFFFFFFF):
-		self.update_type = update_type
-		self.extra_data = extra_data
+	def __init__(self, game_script: str ):
+		self.game_script = game_script
 	
 	def to_bytes(self):
-		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_POLL, 1, separator=b'')
-		data += util.int_to_bytes( self.update_type, 1, separator=b'')
-		data += util.int_to_bytes( self.extra_data, 4, separator=b'')
-
-		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
-		return length + data
-
-#----------------------------------------------
-#		ADMIN_PACKET_ADMIN_PING	
-#----------------------------------------------
-class PacketAdminPing:
-	def __init__(self):
-		pass
-	
-	def to_bytes(self):
-		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_PING, 1, separator=b'')
-		data += util.int_to_bytes( 0, 4, separator=b'')
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_GAMESCRIPT, 1, separator=b'')
+		data += util.str_to_bytes( self.game_script )
 
 		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
 		return length + data
@@ -192,17 +162,63 @@ class PacketAdminPing:
 #		DUMMY_PACKET
 #----------------------------------------------
 
-class DummyPacket:
+class PacketUpdateFrequency:
 
-	def __init__(self, raw_data: bytearray) -> None:
-		self.data = raw_data
+	def __init__(self, update_type, frequency) -> None:
+		self.update_type = update_type
+		self.frequency = frequency
 	
-	def parse_from_bytes(self):
+	def to_bytes(self):
+		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_UPDATE_FREQUENCY, 1, separator=b'')
+		data += util.int_to_bytes( self.update_type, 2, separator=b'')
+		data += util.int_to_bytes( self.frequency, 2, separator=b'')
+
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
+		return length + data
+
+
+
+#----------------------------------------------
+#		ADMIN_PACKET_SERVER_PROTOCOL
+#----------------------------------------------
+class PacketServerProtocol:
+
+	def __init__(self, raw_data):
+		self.parse_from_bytes( raw_data[3:] )
+
+	def parse_from_bytes(self, raw_data):
 		pass
 
-	def get_data(self):
-		return self.data
 
-	def get_type(self):
-		return ottd.PacketAdminType(self.data[2])
+#----------------------------------------------
+#		ADMIN_PACKET_SERVER_WELCOME
+#----------------------------------------------
+class PacketServerWelcome:
+
+	def __init__(self, raw_data):
+
+		data_type = ottd.PacketAdminType(raw_data[2])
+
+		if data_type != ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME:
+			raise RuntimeError(f"Got {data_type.name} when expecting {ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME.name}")
 		
+		self.parse_from_bytes( raw_data[3:] )
+
+	
+	def parse_from_bytes(self, raw_data) -> bool:
+		index = 0
+		length = 0
+		
+		self.server_name, length = util.get_str_from_bytes( raw_data[index:] )			; index += length
+		self.server_version, length = util.get_str_from_bytes(  raw_data[index:] )		; index += length
+		self.is_dedicated = util.get_bool_from_bytes( raw_data[index:], 1)				; index += length
+		self.map_name, length = util.get_str_from_bytes(  raw_data[index:] )			; index += length
+		self.generation_seed, length = util.get_int_from_bytes(  raw_data[index:], 4)	; index += length
+		self.landscape, length = util.get_int_from_bytes(  raw_data[index:], 1)			; index += length
+
+		self.start_year, length = util.get_int_from_bytes(  raw_data[index:], 4)		; index += length
+		self.start_year = util.ConvertDateToYMD( self.start_year ) 
+
+		map_x, length = util.get_int_from_bytes(  raw_data[index:], 2)	; index += length
+		map_y, _ = util.get_int_from_bytes(  raw_data[index:], 2)
+		self.map_size = (map_x, map_y)
