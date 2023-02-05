@@ -1,277 +1,295 @@
 
-import openttd.openttdtypes as ottd
-import openttd.entities as entities
-import openttd.packets as pkts
-import openttd.util as util
-from openttd.tcpsocket import TCPSocket
-
 import time
+import logging
 
-class OpenTTD:
-	def __init__(self, server_ip, server_admin_port, admin_name, admin_password) -> None:
+import openttdtypes as ottdtypes
+import entities as entities
+import packets as pkts
+import util as util
+
+from ottdsocket import OTTDSocket
+
+ottdlog = logging.getLogger("OTTDAdmn")
+
+
+ENTITY_TYPE_MATCH = {
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_DATE 				: entities.ServerDate ,
+
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_JOIN		: entities.ClientJoin ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO		: entities.Client ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_UPDATE		: entities.ClientUpdate ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_QUIT		: entities.ClientQuit ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_ERROR		: entities.ClientError ,
+
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_NEW		: entities.CompanyNew ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO		: entities.Company ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_UPDATE	: entities.Company ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_REMOVE	: entities.CompanyRemove ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY	: entities.CompanyEconomy ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS 	: entities.CompanyStats ,
+
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_RCON 				: entities.RCONResult ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_RCON_END			: entities.RCONEnd ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_PONG 				: entities.ServerPong ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL			: entities.ServerProtocol ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME			: entities.ServerWelcome ,
+
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_NEWGAME			: entities.ServerNewGame ,
+	ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_SHUTDOWN			: entities.ServerShutdown ,
+}
+
+
+class OpenTTDAdmin:
+	def __init__(self, server_ip, admin_port, admin_name, admin_pswd) -> None:
 		self.admin_name = admin_name
-		self.admin_password = admin_password
+		self.admin_pswd = admin_pswd
 
-		self.server_ip = server_ip
-		self.server_port = server_admin_port
-	
-	def __connect__(self, reconnect = False) -> bool:
-		if reconnect:
-			self.sock.reconnect()
-			self.update_sock.reconnect()
+		self.ctrl_sock = OTTDSocket(server_ip, admin_port)
+		self.updt_sock = OTTDSocket(server_ip, admin_port)
 
-		self.sock = TCPSocket( self.server_ip, self.server_port)
-		self.update_sock = TCPSocket( self.server_ip, self.server_port)
+
+	def __network_receive__(*, packet_type, packet_class, ottd_socket ) -> object:
 		
-		self.sock.connect()
-		self.update_sock.connect()
-
-	def __network_receive__(self, receive_type, *, release_lock = True, update_sock = False ) -> bytearray:
-
-		sock = self.sock
-		if update_sock :
-			sock = self.update_sock
-
-		data = b''
-
-		while True:
-			tmp = sock.peek(3)
-
-			if len(tmp) != 3: 
-				break
-
-			if  util.get_type_from_packet(tmp) != receive_type:
-				break
+		pkt_header = ottd_socket.peek(retries=3)
+		if len(pkt_header) == 0 or util.get_type_from_packet(pkt_header) != packet_type:
+			return None
 			
-			data_length = util.get_length_from_packet(tmp)
-			
-			data += sock.receive_data(data_length, False)
+		data_length = util.get_length_from_packet(pkt_header)
+		data = ottd_socket.receive_data(data_length)
+
+		_pkt_ = packet_class()
+		_pkt_.parse_from_bytearray(data)
 		
-		sock.receive_data(0, release_lock)
-		return data
+		return _pkt_
 	
-	def __poll_info__(self, send_type, receive_type, extra_info = 0):
 
-		poll_pkt = pkts.PacketAdminPoll(send_type, extra_data=extra_info)
-		self.sock.send_data( poll_pkt.to_bytes() )
+	def __network_receive_list__(*,packet_type, packet_class, ottd_socket) -> list:
+		pkts = list()
+		pkt = OpenTTDAdmin.__network_receive__(packet_type=packet_type, packet_class=packet_class, ottd_socket=ottd_socket)
 
-		return self.__network_receive__(receive_type, release_lock=True)
-
-	def __parse_info_from_bytes__(self, raw_data, info_class):
-		i = 0
-		info_list = list()
-		while i < len(raw_data):
-			infor_inst = info_class()
-			i += infor_inst.parse_from_bytearray(raw_data[i:])
-
-			info_list.append(infor_inst)
+		while pkt != None:
+			pkts.append(pkt)
+			pkt = OpenTTDAdmin.__network_receive__(packet_type=packet_type, packet_class=packet_class, ottd_socket=ottd_socket)
 		
-		return info_list
-	
-	def __register_updates__(self, update_type, frequency) -> bool:
+		return pkts
 
-		if self.update_sock.is_locked():
-			self.update_sock.receive_data(0,release_lock=True)
 
-		update_pkt = pkts.PacketUpdateFrequency( update_type, frequency )
+	def __join_socket__(ottd_socket, admin_name, admin_pswd):
+		ottd_socket.disconnect()
+
+		ottd_socket.connect()
+
+		pkt_admin_join = pkts.PacketAdminJoin(admin_name, admin_pswd, ottdtypes.ADMIN_CLIENT_VERSION).to_bytes()
+		ottd_socket.send_data( pkt_admin_join )
+
+		pkt_server_protocol = OpenTTDAdmin.__network_receive__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL,
+																packet_class=entities.ServerProtocol, ottd_socket=ottd_socket )
+
+		if pkt_server_protocol == None:
+			ottdlog.error(f"Failed to join server {ottd_socket.ip}:{ottd_socket.port} with user: {admin_name} password: {'*' * len(admin_pswd)}\n--------EXITING--------")
+			exit(0)
+									
+		ottdlog.info(f"Received packet ADMIN_PACKET_SERVER_PROTOCOL from {ottd_socket.ip}:{ottd_socket.port}")
+
+		pkt_welcome = OpenTTDAdmin.__network_receive__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME,
+														packet_class=entities.ServerWelcome, ottd_socket=ottd_socket )
+
+		if pkt_welcome == None:
+			ottdlog.error(f"Failed to join server {ottd_socket.ip}:{ottd_socket.port} with user: {admin_name} password: {'*' * len(admin_pswd)}\n--------EXITING--------")
+			exit(0)
+
+		ottdlog.info(f"Received packet ADMIN_PACKET_SERVER_WELCOME from {ottd_socket.ip}:{ottd_socket.port}")
 		
-		self.update_sock.send_data(update_pkt.to_bytes())
+		return pkt_server_protocol, pkt_welcome
 
+
+	def __request_updates__(self, update_type, frequency) -> bool:
+		update_pkt = pkts.PacketUpdateFrequency( update_type, frequency ).to_bytes()
+		self.updt_sock.send_data(update_pkt)
 		return True
 
 
+	def join_server(self):
+		_, pkt_welcome1 = OpenTTDAdmin.__join_socket__(self.ctrl_sock, self.admin_name, self.admin_pswd)
+		_, pkt_welcome2 = OpenTTDAdmin.__join_socket__(self.updt_sock, self.admin_name, self.admin_pswd)
 
-	def join(self)  -> bool:
-		self.__connect__()
-
-		join_pkt = pkts.PacketAdminJoin(self.admin_name, self.admin_password, ottd.ADMIN_CLIENT_VERSION)
-		self.sock.send_data(join_pkt.to_bytes())
-		self.update_sock.send_data(join_pkt.to_bytes())
-
-		data = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL, release_lock=False)
-		protocol_pkt = pkts.PacketServerProtocol( data)
-
-		_ = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL, release_lock=False, update_sock=True)
-
-		data = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME)
-		welcome_pkt = pkts.PacketServerWelcome( data )
-
-		_ = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME, update_sock=True)
-
-		print( "----------------------------------")
-		print( f"Connected to server {welcome_pkt.server_name} ")
-		print( f"version: {welcome_pkt.server_version}, map: {welcome_pkt.map_size}")
-		print( f"starting year: {welcome_pkt.start_year}")
-		print( f"game_type: {welcome_pkt.is_dedicated}")
-		print( "----------------------------------\n")
-
-		return True
+		ottdlog.info( "----------------------------------")
+		ottdlog.info( f"Connected to server {pkt_welcome2.server_name} ")
+		ottdlog.info( f"version: {pkt_welcome2.server_version}, map: {pkt_welcome2.map_size}")
+		ottdlog.info( f"starting year: {pkt_welcome2.start_year}")
+		ottdlog.info( f"dedicated: {pkt_welcome2.is_dedicated}")
+		ottdlog.info( "----------------------------------\n")
 	
-	def leave(self) -> bool:
-		quit_pkt = pkts.PacketAdminQuit()
-		self.sock.send_data(quit_pkt.to_bytes())
 
-		self.update_sock.receive_data(0,release_lock=True)
-		self.update_sock.send_data(quit_pkt.to_bytes())
+	def leave_server(self):
+		quit_pkt = pkts.PacketAdminQuit().to_bytes()
+		self.ctrl_sock.send_data(quit_pkt)
+		self.updt_sock.send_data(quit_pkt)
 
-		self.sock.disconnect()
-		self.update_sock.disconnect()
-		return True
-
-
+		self.ctrl_sock.disconnect()
+		self.updt_sock.disconnect()
+	
 
 	def ping_server(self) -> bool:
-		ping_pkt = pkts.PacketAdminPing()
-		self.sock.send_data( ping_pkt.to_bytes() )
+		ping_pkt = pkts.PacketAdminPing().to_bytes()
+		self.ctrl_sock.send_data( ping_pkt )
 
-		res = self.__network_receive__( ottd.PacketAdminType.ADMIN_PACKET_SERVER_PONG)
-		if len(res) > 3:
+		res = OpenTTDAdmin.__network_receive__( packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_PONG,
+												packet_class=entities.ServerPong, ottd_socket=self.ctrl_sock )
+		if res:
 			return True
 		
 		return False
 
+
 	def poll_current_date(self) -> tuple:
-		data = self.__poll_info__(  ottd.AdminUpdateType.ADMIN_UPDATE_DATE, 
-									ottd.PacketAdminType.ADMIN_PACKET_SERVER_DATE)
+		poll_pkt = pkts.PacketAdminPoll( ottdtypes.AdminUpdateType.ADMIN_UPDATE_DATE, extra_data=0).to_bytes()
+		self.ctrl_sock.send_data( poll_pkt )
 
-		data = util.bytes_to_int(data[3:])
+		pkt_date = OpenTTDAdmin.__network_receive__( packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_DATE,
+													 packet_class=entities.ServerDate, ottd_socket=self.ctrl_sock )
 
-		return util.ConvertDateToYMD(data)
+		return pkt_date.YMD
 	
-	def poll_client_info(self, client_id=0xFFFFFFFF) -> list:
-		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, 
-								  ottd.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO, 
-								  extra_info=client_id)
 
-		if len(data) == 0: 
-			return list()
+	def poll_client_info(self, client_id=ottdtypes.MAX_UINT) -> tuple:
+		poll_pkt = pkts.PacketAdminPoll( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, extra_data=client_id).to_bytes()
+		self.ctrl_sock.send_data( poll_pkt )
 
-		return self.__parse_info_from_bytes__(data[3:], entities.Client)
+		clients = OpenTTDAdmin.__network_receive_list__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_CLIENT_INFO,
+															packet_class=entities.Client, ottd_socket=self.ctrl_sock )
+
+		return clients
 	
-	def poll_company_info(self, company_id=0xFFFFFFFF) -> list:
-		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO, 
-								  ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO, 
-								  extra_info=company_id)
 
-		if len(data) == 0: 
-			return list()
+	def poll_company_info(self, company_id=ottdtypes.MAX_UINT) -> tuple:
+		poll_pkt = pkts.PacketAdminPoll( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO, extra_data=company_id).to_bytes()
+		self.ctrl_sock.send_data( poll_pkt )
 
-		return self.__parse_info_from_bytes__(data[3:], entities.Company)
+		companies = OpenTTDAdmin.__network_receive_list__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_INFO,
+															packet_class=entities.Company, ottd_socket=self.ctrl_sock )
+
+		return companies
 	
-	def poll_company_economy(self, company_id=0xFFFFFFFF) -> list:
-		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY, 
-								  ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY, 
-								  extra_info=company_id)
 
-		if len(data) == 0: 
-			return list()
+	def poll_company_economy(self, company_id=ottdtypes.MAX_UINT) -> tuple:
+		poll_pkt = pkts.PacketAdminPoll( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY, extra_data=company_id).to_bytes()
+		self.ctrl_sock.send_data( poll_pkt )
 
-		return self.__parse_info_from_bytes__(data[3:], entities.CompanyEconomy)
+		economy = OpenTTDAdmin.__network_receive_list__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_ECONOMY,
+															packet_class=entities.CompanyEconomy, ottd_socket=self.ctrl_sock )
+
+		return economy
+	
+
+	def poll_company_stats(self, company_id=ottdtypes.MAX_UINT) -> tuple:
+		poll_pkt = pkts.PacketAdminPoll( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS, extra_data=company_id).to_bytes()
+		self.ctrl_sock.send_data( poll_pkt )
+
+		stats = OpenTTDAdmin.__network_receive_list__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS,
+														packet_class=entities.CompanyStats, ottd_socket=self.ctrl_sock )
+
+		return stats
+
+
+	def rcon_cmd(self, rcon_cmd) -> str:
+		rcmd = pkts.PacketAdminRCON(rcon_cmd).to_bytes()
+		self.ctrl_sock.send_data( rcmd )
+
+		cmd_output = OpenTTDAdmin.__network_receive_list__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_RCON,
+															packet_class=entities.RCONResult, ottd_socket=self.ctrl_sock )
+
+		cmd_end = OpenTTDAdmin.__network_receive__(	packet_type=ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_RCON_END,
+													packet_class=entities.RCONEnd, ottd_socket=self.ctrl_sock )
 		
-	def poll_company_stats(self, company_id=0xFFFFFFFF) -> list:
-		data = self.__poll_info__(ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS, 
-								  ottd.PacketAdminType.ADMIN_PACKET_SERVER_COMPANY_STATS, 
-								  extra_info=company_id)
-
-		if len(data) == 0: 
-			return list()
-
-		return self.__parse_info_from_bytes__(data[3:], entities.CompanyStats)
-
-
+		return cmd_output, cmd_end
+	
 
 	def chat_all(self, message):
-		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.ALL, message)
-		self.sock.send_data(msg.to_bytes())
-		self.sock.receive_data(0)
+		msg = pkts.PacketAdminChat(ottdtypes.CHAT_TYPE.ALL, message)
+		self.ctrl_sock.send_data(msg.to_bytes())
 	
+
 	def chat_team(self, company_id, message):
-		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.COMPANY, message, to_id=company_id)
-		self.sock.send_data(msg.to_bytes())
-		self.sock.receive_data(0)
+		msg = pkts.PacketAdminChat(ottdtypes.CHAT_TYPE.COMPANY, message, to_id=company_id)
+		self.ctrl_sock.send_data(msg.to_bytes())
 	
+
 	def chat_client(self, client_id, message):
-		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.CLIENT, message, to_id=client_id)
-		self.sock.send_data(msg.to_bytes())
-		self.sock.receive_data(0)
+		msg = pkts.PacketAdminChat(ottdtypes.CHAT_TYPE.CLIENT, message, to_id=client_id)
+		self.ctrl_sock.send_data(msg.to_bytes())
+
 
 	def chat_external(self, source, user, message, color = 0):
-		msg = pkts.PacketAdminChat(ottd.CHAT_TYPE.EXTERNAL, message, to_id=3, app=source, app_user=user, color=color)
-		self.sock.send_data(msg.to_bytes())
-		self.sock.receive_data(0)
+		msg = pkts.PacketAdminChat(ottdtypes.CHAT_TYPE.EXTERNAL, message, to_id=3, app=source, app_user=user, color=color)
+		self.ctrl_sock.send_data(msg.to_bytes())
+	
+	# clamp Daily - anually
+	def request_date_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_DAILY) -> bool:
+		frequency = max(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_DAILY, min(frequency, ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY))
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_DATE, frequency)
+	
+	# clamp Daily - automatic
+	def request_client_info_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		frequency = max(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_DAILY, min(frequency, ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC))
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, frequency)
+	
+	# Only Automatic
+	def request_company_info_updates(self) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO, ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC)
+	
+	# clamp weekly - anually
+	def request_company_economy_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY) -> bool:
+		frequency = max(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY, min(frequency, ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY))
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY, frequency)
+
+	# clamp weekly - anually
+	def request_company_stats_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY ) -> bool:
+		frequency = max(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY, min(frequency, ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY))
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS, frequency)
 	
 
-
-	def run_rcon_cmd(self, rcon_cmd) -> str:
-
-		cmd = pkts.PacketAdminRCON(rcon_cmd)
-		self.sock.send_data(cmd.to_bytes())
-
-		cmd_out = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_RCON, release_lock=False)
-		end = self.__network_receive__(ottd.PacketAdminType.ADMIN_PACKET_SERVER_RCON_END)
-
-		res = ''
-		i = 0
-		while i < len(cmd_out):
-			i += 3
-			v,l = util.get_int_from_bytes( cmd_out[i:], 2) ; i+=l
-			s,l = util.get_str_from_bytes( cmd_out[i:]) ; i+=l
-			res += s + '\n'
-		
-		return res
+	def request_chat_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CHAT, frequency)
 	
 
+	def request_console_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CONSOLE, frequency)
 	
-	def register_date_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_DAILY) -> bool:
-		frequency = max(0, min(frequency, ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY))
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_DATE, frequency)
-	
-	def register_client_info_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CLIENT_INFO, frequency)
-	
-	def register_company_info_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_INFO, frequency)
-	
-	def register_company_economy_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_ECONOMY, frequency)
-	
-	def register_company_stats_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_WEEKLY ) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_COMPANY_STATS, frequency)
-	
-	def register_chat_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CHAT, frequency)
-	
-	def register_console_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CONSOLE, frequency)
-	
-	def register_cmd_names_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CMD_NAMES, frequency)
-	
-	def register_cmd_logging_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_CMD_LOGGING, frequency)
-	
-	def register_gamescript_updates(self, frequency = ottd.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
-		return self.__register_updates__( ottd.AdminUpdateType.ADMIN_UPDATE_GAMESCRIPT, frequency)
 
+	def request_cmd_names_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CMD_NAMES, frequency)
+	
 
+	def request_cmd_logging_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_CMD_LOGGING, frequency)
+	
 
-	# never releases the lock on the update socket
-	def get_updates(self) -> list:
+	def request_gamescript_updates(self, frequency = ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC) -> bool:
+		return self.__request_updates__( ottdtypes.AdminUpdateType.ADMIN_UPDATE_GAMESCRIPT, frequency)
+	
 
+	def get_registered_updates(self):
 		updates = list()
 
-		if not self.update_sock.is_locked():
-			return updates
+		pkt_header = self.updt_sock.peek(retries=3)
 
-		tmp = self.update_sock.peek()
+		while len(pkt_header):
 
-		while len(tmp):
-			_type_ = util.get_type_from_packet( tmp )
-			data = self.__network_receive__(_type_, release_lock=False, update_sock=True)
+			pkt_type = util.get_type_from_packet(pkt_header) 
+			data = None
 
+				
+			if pkt_type == ottdtypes.PacketAdminType.ADMIN_PACKET_SERVER_DATE:
+				data = OpenTTDAdmin.__network_receive__(packet_type=pkt_type, packet_class = ENTITY_TYPE_MATCH[pkt_type], ottd_socket = self.updt_sock)
+			else:
+				data = OpenTTDAdmin.__network_receive_list__(packet_type=pkt_type, packet_class = ENTITY_TYPE_MATCH[pkt_type], ottd_socket = self.updt_sock)
+				
 			updates.append(data)
-			tmp = self.update_sock.peek()
+
+			pkt_header = self.updt_sock.peek(retries=3)
 		
 		return updates
 
-	
+
+

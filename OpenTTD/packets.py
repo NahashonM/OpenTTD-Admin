@@ -1,7 +1,7 @@
 
 
-import openttd.openttdtypes as ottd
-import openttd.util as util
+import openttdtypes as ottd
+import util as util
 
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_JOIN
@@ -39,7 +39,7 @@ class PacketAdminPing:
 
 
 #----------------------------------------------
-#		ADMIN_PACKET_ADMIN_PING	
+#		ADMIN_PACKET_ADMIN_QUIT	
 #----------------------------------------------
 class PacketAdminQuit:
 	def __init__(self):
@@ -49,62 +49,6 @@ class PacketAdminQuit:
 		data  = util.int_to_bytes( ottd.PacketAdminType.ADMIN_PACKET_ADMIN_QUIT, 1, separator=b'')
 
 		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
-		return length + data
-
-
-
-
-#----------------------------------------------
-#		ADMIN_PACKET_ADMIN_CHAT
-#----------------------------------------------
-class PacketAdminChat:
-
-	def __init__(self, chat_type, message, *, to_id: int = 0, app: str = '', app_user: str = '', color: int = 0) -> None:
-		self.chat_type = chat_type
-		self.message = message
-		self.to_id = to_id
-		self.app = app
-		self.app_user = app_user
-		self.color = max(0, min(color, 16))		# clamp range 0 - 16
-
-	def is_valid_color( color):
-		if not (color & ottd.TextColor.TC_IS_PALETTE_COLOUR):
-			return ottd.TextColor.TC_BEGIN <= color and color < ottd.TextColor.TC_END
-		
-		return False
-	
-	def __chat__(self):
-		_chat_type_ = ottd.CHAT_MAP[self.chat_type][0]
-		_dest_type_ = ottd.CHAT_MAP[self.chat_type][1]
-
-		data = util.int_to_bytes(ottd.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT, 1, separator=b'')
-		data += util.int_to_bytes(_chat_type_, 1, separator=b'')
-		data += util.int_to_bytes(_dest_type_, 1, separator=b'')
-		data += util.int_to_bytes(self.to_id, 4, separator=b'')
-		data += util.str_to_bytes(self.message)
-
-		return data
-
-	
-	def __external_chat__(self):
-		data  = util.int_to_bytes(ottd.PacketAdminType.ADMIN_PACKET_ADMIN_EXTERNAL_CHAT, 1, separator=b'')
-		data += util.str_to_bytes(self.app)				# source
-		data += util.int_to_bytes(self.color, 2, separator=b'')	# color
-		data += util.str_to_bytes(self.app_user)						# user
-		data += util.str_to_bytes(self.message)
-
-		return data
-
-	def to_bytes(self) -> bytearray:
-		data = b''
-
-		if self.chat_type == ottd.CHAT_TYPE.EXTERNAL:
-			data += self.__external_chat__()
-		else:
-			data += self.__chat__()
-		
-		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
-
 		return length + data
 
 
@@ -179,46 +123,54 @@ class PacketUpdateFrequency:
 
 
 #----------------------------------------------
-#		ADMIN_PACKET_SERVER_PROTOCOL
+#		ADMIN_PACKET_ADMIN_CHAT
 #----------------------------------------------
-class PacketServerProtocol:
+class PacketAdminChat:
 
-	def __init__(self, raw_data):
-		self.parse_from_bytes( raw_data[3:] )
+	def __init__(self, chat_type, message, *, to_id: int = 0, app: str = '', app_user: str = '', color: int = 0) -> None:
+		self.chat_type = chat_type
+		self.message = message
+		self.to_id = to_id
+		self.app = app
+		self.app_user = app_user
+		self.color = max(0, min(color, 16))		# clamp range 0 - 16
 
-	def parse_from_bytes(self, raw_data):
-		pass
-
-
-#----------------------------------------------
-#		ADMIN_PACKET_SERVER_WELCOME
-#----------------------------------------------
-class PacketServerWelcome:
-
-	def __init__(self, raw_data):
-
-		data_type = ottd.PacketAdminType(raw_data[2])
-
-		if data_type != ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME:
-			raise RuntimeError(f"Got {data_type.name} when expecting {ottd.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME.name}")
+	def is_valid_color( color):
+		if not (color & ottd.TextColor.TC_IS_PALETTE_COLOUR):
+			return ottd.TextColor.TC_BEGIN <= color and color < ottd.TextColor.TC_END
 		
-		self.parse_from_bytes( raw_data[3:] )
-
+		return False
 	
-	def parse_from_bytes(self, raw_data) -> bool:
-		index = 0
-		length = 0
+	def __chat__(self):
+		_chat_type_ = ottd.CHAT_MAP[self.chat_type][0]
+		_dest_type_ = ottd.CHAT_MAP[self.chat_type][1]
+
+		data = util.int_to_bytes(_chat_type_, 1, separator=b'')
+		data += util.int_to_bytes(_dest_type_, 1, separator=b'')
+		data += util.int_to_bytes(self.to_id, 4, separator=b'')
+		data += util.str_to_bytes(self.message)
+
+		return data
+	
+	def __external_chat__(self):
+		data = util.str_to_bytes(self.app)				# source
+		data += util.int_to_bytes(self.color, 2, separator=b'')	# color
+		data += util.str_to_bytes(self.app_user)						# user
+		data += util.str_to_bytes(self.message)
+
+		return data
+
+	def to_bytes(self) -> bytearray:
+		data = b''
+
+		if self.chat_type == ottd.CHAT_TYPE.EXTERNAL:
+			data += util.int_to_bytes(ottd.PacketAdminType.ADMIN_PACKET_ADMIN_EXTERNAL_CHAT, 1, separator=b'')
+			data += self.__external_chat__()
+		else:
+			data += util.int_to_bytes(ottd.PacketAdminType.ADMIN_PACKET_ADMIN_CHAT, 1, separator=b'')
+			data += self.__chat__()
 		
-		self.server_name, length = util.get_str_from_bytes( raw_data[index:] )			; index += length
-		self.server_version, length = util.get_str_from_bytes(  raw_data[index:] )		; index += length
-		self.is_dedicated = util.get_bool_from_bytes( raw_data[index:], 1)				; index += length
-		self.map_name, length = util.get_str_from_bytes(  raw_data[index:] )			; index += length
-		self.generation_seed, length = util.get_int_from_bytes(  raw_data[index:], 4)	; index += length
-		self.landscape, length = util.get_int_from_bytes(  raw_data[index:], 1)			; index += length
+		length = util.int_to_bytes( len(data) + 2, 2, separator=b'')
 
-		self.start_year, length = util.get_int_from_bytes(  raw_data[index:], 4)		; index += length
-		self.start_year = util.ConvertDateToYMD( self.start_year ) 
+		return length + data
 
-		map_x, length = util.get_int_from_bytes(  raw_data[index:], 2)	; index += length
-		map_y, _ = util.get_int_from_bytes(  raw_data[index:], 2)
-		self.map_size = (map_x, map_y)

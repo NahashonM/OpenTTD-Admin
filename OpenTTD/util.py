@@ -1,9 +1,8 @@
+'''
 
-
+'''
 import sys
-import openttd.util as util
-import openttd.openttdtypes as ottd
-
+import openttdtypes as ottdtypes
 
 #---------------------------------
 # type conversion
@@ -48,7 +47,7 @@ def get_str_from_bytes(byte_value: bytearray) -> bool:
 
 
 def get_type_from_packet(raw_bytes):
-	return ottd.PacketAdminType( raw_bytes[2] )
+	return ottdtypes.PacketAdminType( raw_bytes[2] )
 
 def get_length_from_packet(raw_bytes):
 	return bytes_to_int(raw_bytes[:2])
@@ -84,7 +83,7 @@ def ConvertYMDToDate(year, month, day):
 	date = year * DAYS_IN_YEAR + num_4_yr * DAYS_IN_4_YEARS + num_100_yrs * DAYS_IN_100_YEARS + num_400_yrs * DAYS_IN_400_YEARS
 
 	for i in range(0, month - 1):
-		date += list(ottd.MONTH_DAYS.values())[i]
+		date += list(ottdtypes.MONTH_DAYS.values())[i]
 
 		if is_leap_yr and i == 1:
 			date += 1
@@ -119,11 +118,11 @@ def ConvertDateToYMD(date):
 
 	while date > 0:
 		month += 1
-		date -= list(ottd.MONTH_DAYS.values())[ month - 1]
+		date -= list(ottdtypes.MONTH_DAYS.values())[ month - 1]
 
 		if is_leap and month == 2:
 			date -= 1
 	
-	date = list(ottd.MONTH_DAYS.values())[ month - 1] + date
+	date = list(ottdtypes.MONTH_DAYS.values())[ month - 1] + date
 
 	return year, month, date
