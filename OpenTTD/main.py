@@ -3,20 +3,41 @@
 '''
 import os
 import time
-import pika
 import logging
 import threading
 import argparse
+import discord
+import signal
 
-import rabbitmq as rmq
 
-import openttd as ottd
-import openttdtypes as ottdtypes
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+from ottd_poll import OttdPoll
+from ottd_update import OttdUpdate
+from discordAdmin import DiscordBot
+
+import ottd_enum as ottdenum
+
+import discord_msg_handlers
+import ottd_update_handlers
+
+import globals
+
 
 
 logging.basicConfig(level=logging.DEBUG)
-
 logger = logging.getLogger("main")
+
+
+discord_token = os.getenv("DISCORD_TOKEN")
+discord_guild = os.getenv("DISCORD_GUILD")  # servers
+
+admin_channel_name = os.getenv("DISCORD_ADMIN_CHANNEL")
+ingame_channel_name = os.getenv("DISCORD_INGAME_CHANNEL")
+
 
 def parse_cmd_arguments():
     parser = argparse.ArgumentParser(
@@ -48,65 +69,124 @@ def parse_cmd_arguments():
 
 
 
-def control_queue_callback(ch, method, properties, body):
-	response = body.decode()
 
-	print("\nresponse = " + response)
+
+'''
+	Start discord bot
+'''
+def init_discord_bot():
+
+	intents = discord.Intents.default()
+	intents.message_content = True
+
+	bot = DiscordBot(discord_guild, admin_channel_name, ingame_channel_name, intents=intents)
+
+	bot.register_on_admin_message_callback( discord_msg_handlers.on_discord_admin_message )
+	bot.register_on_ingame_message_callback( discord_msg_handlers.on_discord_message )
+
+	discord_thread = threading.Thread(target = bot.run, args=(discord_token, ))
+	discord_thread.start()
+
+	return bot, discord_thread
+
+
+
+'''
+	Main OpenTTD update thread
+
+	Listens for all OpenTTD update events that were registered during startup
+'''
+def start_ottd_update_watcher():
+
+	while True:
+		time.sleep(0.1)
+		update = globals.ottdUpdateAdmin.get_update()
+
+		if not update:
+			continue
+
+		if type(update) == list:
+			for entry in update:
+				print("\t ", entry )
+			
+			return
+		
+		try:
+			ottd_update_handlers.OTTD_AUTO_UPDATE_HANDLERS[type(update).__name__](update)
+		except:
+			pass
+		
+		
+
 
 
 
 if __name__ == "__main__":
+
 	args = parse_cmd_arguments()
 
-	# rabbit_host, rabbit_port = args.rabbitmq.split(':')
-
-	# mq = rmq.RabbitMQ(rabbit_host, rabbit_port)
-	# mq.clean_up()
-	# mq.create_queue_exchange()
-	# mq.register_msg_callback(control_queue_callback)
-	# mq.start_consuming()
+	signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 	ottd_host, ottd_admin_port = args.server.split(':')
-	ottd_admin = ottd.OpenTTDAdmin(ottd_host, ottd_admin_port, args.user, args.pswd)
 
-	ottd_admin.join_server()
-
-	#print(ottd_admin.ping_server())
-	#print(ottd_admin.poll_current_date())
-	#print(ottd_admin.poll_client_info()[1].name)
-	#print(ottd_admin.poll_company_info()[0].name)
-	#print(ottd_admin.poll_company_economy()[0].loan)
-	#print(ottd_admin.poll_company_stats()[0].vehicles)
-	ottd_admin.chat_all("Hello World")
-	#ottd_admin.chat_client(32,"Hello World")
-	#ottd_admin.chat_team(0,"Hello World")
-	#ottd_admin.chat_external("discord","Nahashon","Hello World")
-
-	#ottd_admin.rcon_cmd("set yapf.rail_firstred_twoway_eol true")
-
-	ottd_admin.request_date_updates(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY)
-	#ottd_admin.request_client_info_updates(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC)
-	#ottd_admin.request_company_economy_updates(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_AUTOMATIC)
-	ottd_admin.request_company_info_updates()
-	#ottd_admin.request_company_stats_updates(ottdtypes.AdminUpdateFrequency.ADMIN_FREQUENCY_ANUALLY)
+	# start discord bot thread
+	#---------------------------------
+	globals.discord_bot, discord_thread = init_discord_bot()
 
 
-	while True:
-		updates = ottd_admin.get_registered_updates()
-		for update in updates:
-			if type(update) == list:
-				for entry in update:
-					print("\t ", entry.__dict__)
-			else:
-				print( update.__dict__)
-		
-		print("--------------")
+	# Connected to game server
+	#---------------------------------
+	globals.ottdPollAdmin = OttdPoll(ottd_host, ottd_admin_port)
+	globals.ottdUpdateAdmin = OttdUpdate(ottd_host, ottd_admin_port)
+	
+	serv_protocol, server_welcome = globals.ottdPollAdmin.join_server('pollAdmin','!@Admin123')
+	if not serv_protocol or not server_welcome:
+		logger.error("Could not connect to server. Please verify credentials")
+		exit(-1)
+	
+	globals.serverWelcome = server_welcome
 
-		time.sleep(0.1)
+	serv_protocol, server_welcome = globals.ottdUpdateAdmin.join_server('updateAdmin','!@Admin123') 
+	if not serv_protocol or not server_welcome:
+		logger.error("Could not connect to server. Please verify credentials")
+		exit(-1)
 
 	
+	# register openttd updates
+	#-------------------------------------
+	globals.ottdUpdateAdmin.request_date_updates( ottdenum.AdminUpdateFrequency.ADMIN_FREQUENCY_QUARTERLY )
+	globals.ottdUpdateAdmin.request_chat_updates()
+	globals.ottdUpdateAdmin.request_client_info_updates()
+	globals.ottdUpdateAdmin.request_company_info_updates()
+	# globals.ottdUpdateAdmin.request_company_stats_updates()
 
-	# Updates continuing on main thread
+
+	# populate ottd_clients dict
+	#-------------------------------------
+	res = globals.ottdPollAdmin.poll_client_info()
+
+	for client in res:
+		globals.ottd_clients[client.id] = {
+			'name': client.name.decode(),
+			'join_date': client.join_date,
+			'company': client.company,
+			'new': False,
+		}
+
+
+	# start consuming openttd updates
+	#---------------------------------
+	ottd_update_thread = threading.Thread(target= start_ottd_update_watcher )
+	ottd_update_thread.start()
+
+
+	# watch if any of the threads is dead
+	#-------------------------------------
+
+
+	ottd_update_thread.join()
+	discord_thread.join()
+
 
 	exit(0)
 
