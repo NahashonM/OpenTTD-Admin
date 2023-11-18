@@ -2,3 +2,4 @@ __pycache__
 openttd/__pycache__
 __pycache__
 */__pycache__/*
+*/.env/*
