@@ -1,11 +1,13 @@
 FROM python:3.10-slim
 
-RUN pip install discord
-RUN pip install python-dotenv
-RUN pip install tabulate
+RUN mkdir /OpenTTD
+WORKDIR /OpenTTD
 
-COPY openttd /openttd
+COPY OpenTTD/requirements.txt .
 
-WORKDIR /openttd
+RUN pip --no-cache-dir install -r requirements.txt
 
-CMD ['python', './main.py']
+COPY OpenTTD/* .
+
+
+CMD ["python", "./main.py"]

@@ -96,9 +96,12 @@ class OttdBase:
 		except:
 			logger.error(f"unmatched packet type {packet_type}")
 			return None
+		
 	
-
-
+	def flush_buffer(self):
+		self.receive_any()
+		
+	
 	def receive_list(self, packet_type):
 		data = list()
 		tmp = self.receive(packet_type)
