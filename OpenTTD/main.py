@@ -43,8 +43,8 @@ def parse_cmd_arguments():
 
 
 def gen_env_file():
-	env_path = os.path.join( os.getcwd(), '.env' )
-	with open('.env', 'w') as env_file:
+	env_path = os.path.join( os.path.dirname(os.path.realpath(__file__)) , '.env' )
+	with open(env_path, 'w') as env_file:
 		env_file.write(
 '''
 #	Discord Configs
@@ -63,7 +63,7 @@ OPENTTD_ADMIN_NAME_2 = _openttd_admin_name_for_auto_update_services_
 OPENTTD_ADMIN_PASSWORD = _openttd_admin_password_
 ''')
 	
-	print('.env file generated in {env_path}')
+	print(f'.env file generated in {env_path}')
 
 
 '''
