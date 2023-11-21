@@ -9,6 +9,7 @@ import discord
 import signal
 import argparse
 
+
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -72,9 +73,12 @@ OPENTTD_ADMIN_PASSWORD = _openttd_admin_password_
 def init_discord_bot():
 
 	intents = discord.Intents.default()
+	intents = discord.Intents.all()
 	intents.message_content = True
 
-	bot = DiscordBot(discord_guild, admin_channel_name, ingame_channel_name, intents=intents)
+	bot = DiscordBot(discord_guild, admin_channel_name, ingame_channel_name, intents=intents, command_prefix='!')
+	
+	discord_msg_handlers.register_discord_bot_commands(bot)
 
 	bot.register_on_admin_message_callback( discord_msg_handlers.on_discord_admin_message )
 	bot.register_on_ingame_message_callback( discord_msg_handlers.on_discord_message )

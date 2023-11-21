@@ -1,14 +1,18 @@
 
 import threading
-import discord
 import asyncio
+import discord
 
+from discord.ext import commands
+from discord.message import Message
 
 import globals
 
+
+
 #
 #
-class DiscordBot(discord.Client):
+class DiscordBot(commands.Bot):
 	def __init__(self, server_name, admin_channel, ingame_channel, intents: discord.Intents, **options: any ) -> None:
 		super().__init__(intents=intents, **options)
 
@@ -24,6 +28,7 @@ class DiscordBot(discord.Client):
 		self.on_admin_channel_message = []
 
 
+
     # init guilds and channels
 	async def on_ready(self):
 		for guild in self.guilds:
@@ -31,6 +36,7 @@ class DiscordBot(discord.Client):
 				continue
 
 			for channel in guild.channels:
+				
 				if channel.name == self.admin_channel_name:
 					self.admin_channel_id = channel.id
 
@@ -44,21 +50,29 @@ class DiscordBot(discord.Client):
 			break
 
 	async def on_message(self, message):
-		if message.author == self.user:
-			return
-		
-		if message.channel.id == self.ingame_channel_id:
-			for callback in self.on_ingame_channel_message:
+
+		if message.author == self.user:	return
+
+		ctx = await self.get_context(message)
+		if message.channel.id == self.admin_channel_id:
+			
+			# process commands
+			if ctx.valid and ctx.command:
+				await self.process_commands(message)
+				return
+			
+			# process admin messages
+			for callback in self.on_admin_channel_message: 
 				callback(message)
 
-		if message.channel.id == self.admin_channel_id:
-			for callback in self.on_admin_channel_message:
-				await callback(message)
+			return
+		
+		if message.channel.id != self.ingame_channel_id: return
+		
+		# process ingame messages
+		for callback in self.on_ingame_channel_message:
+			callback(message)
 
-		# print(f"Message from {message.author}: {message.content} channel: {message.channel}")
-        # await message.channel.send('Hello!')
-
-		# await self.send_message_to_admin_channel("hello world")
 	
 	def register_on_admin_message_callback(self, callback):
 		self.on_admin_channel_message.append( callback )
@@ -66,15 +80,16 @@ class DiscordBot(discord.Client):
 	def register_on_ingame_message_callback(self, callback):
 		self.on_ingame_channel_message.append( callback )
 
+
+
 	async def send_message_to_admin_channel(self, message):
 		admin_channel = self.get_channel(self.admin_channel_id)
 		await admin_channel.send(message)
 
-
 	async def send_message_to_ingame_channel(self, message):
 		ingame_channel = self.get_channel(self.ingame_channel_id)
 		await ingame_channel.send(message)
-
+	
 
 
 

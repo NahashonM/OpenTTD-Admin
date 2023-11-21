@@ -53,7 +53,11 @@ def ottd_PacketAdminChat_handler( chat ):
 
 	if not cmd_args or cmd_args[0] == '':			# not a valid command. treat as a message
 		if chat.dest_type == ottdenum.DestType.DESTTYPE_BROADCAST:
-			run_discord_async_function( globals.discord_bot.send_message_to_ingame_channel( message ) )
+			player_name = ''
+			try: player_name = f'[#{chat.to}][{globals.ottd_clients[chat.to]["name"]}] '
+			except: player_name = f'[#{chat.to}] '
+
+			run_discord_async_function( globals.discord_bot.send_message_to_ingame_channel( player_name + message ) )
 		return
 	
 
