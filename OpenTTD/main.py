@@ -7,7 +7,7 @@ import logging
 import threading
 import discord
 import signal
-
+import argparse
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -25,29 +25,45 @@ import ottd_update_handlers
 import globals
 
 
-
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger("main")
 
-'''
----------- Discord Env -------------
-'''
-discord_token = os.getenv("DISCORD_TOKEN")
-discord_guild = os.getenv("DISCORD_GUILD")  # servers
 
-admin_channel_name = os.getenv("DISCORD_ADMIN_CHANNEL")
-ingame_channel_name = os.getenv("DISCORD_INGAME_CHANNEL")
+def parse_cmd_arguments():
+    parser = argparse.ArgumentParser(
+                    prog = os.path.basename(__file__),
+                    description = 'OpenTTD Admin client',
+                    epilog = 'To report any bugs reach out to the dev via')
+    
+    parser.add_argument('-e', '--env',
+                        action='store_true', 
+                        help="Generate .env file and exit.")
+
+    return parser.parse_args()
 
 
+def gen_env_file():
+	env_path = os.path.join( os.getcwd(), '.env' )
+	with open('.env', 'w') as env_file:
+		env_file.write(
 '''
----------- OpenTTD Server Env -------------
-'''
-openttd_host = os.getenv("OPENTTD_HOST")
-openttd_admin_port = os.getenv("OPENTTD_ADMIN_PORT")
-openttd_admin_user1 = os.getenv("OPENTTD_ADMIN_NAME_1")
-openttd_admin_user2 = os.getenv("OPENTTD_ADMIN_NAME_2")
-openttd_admin_paswd = os.getenv("OPENTTD_ADMIN_PASSWORD")
+#	Discord Configs
+#-----------------------------------------
+DISCORD_TOKEN = _your_discord_bot_token_
+DISCORD_GUILD = _your_discord_server_
+DISCORD_ADMIN_CHANNEL = _your_discord_channel_to_send_admin_messages_
+DISCORD_INGAME_CHANNEL = _your_discord_channel_to_send_ingame_chat_messages_
 
+#	OpenTTD Server Configs
+#-----------------------------------------
+OPENTTD_HOST = _openttd_server_ip_or_hostname_
+OPENTTD_ADMIN_PORT = _openttd_server_admin_port_
+OPENTTD_ADMIN_NAME_1 = _openttd_admin_name_for_polling_services_
+OPENTTD_ADMIN_NAME_2 = _openttd_admin_name_for_auto_update_services_
+OPENTTD_ADMIN_PASSWORD = _openttd_admin_password_
+''')
+	
+	print('.env file generated in {env_path}')
 
 
 '''
@@ -98,8 +114,35 @@ def start_ottd_update_watcher():
 
 
 if __name__ == "__main__":
+	args = parse_cmd_arguments()
+	
+
+	if args.env:
+		gen_env_file()
+		exit(0)
+
 
 	signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+	'''
+	---------- Discord Env -------------
+	'''
+	discord_token = os.getenv("DISCORD_TOKEN")
+	discord_guild = os.getenv("DISCORD_GUILD")  # servers
+
+	admin_channel_name = os.getenv("DISCORD_ADMIN_CHANNEL")
+	ingame_channel_name = os.getenv("DISCORD_INGAME_CHANNEL")
+
+	'''
+	---------- OpenTTD Server Env -------------
+	'''
+	openttd_host = os.getenv("OPENTTD_HOST")
+	openttd_admin_port = os.getenv("OPENTTD_ADMIN_PORT")
+	openttd_admin_user1 = os.getenv("OPENTTD_ADMIN_NAME_1")
+	openttd_admin_user2 = os.getenv("OPENTTD_ADMIN_NAME_2")
+	openttd_admin_paswd = os.getenv("OPENTTD_ADMIN_PASSWORD")
+
+
 
 	# start discord bot thread
 	#---------------------------------
@@ -152,7 +195,7 @@ if __name__ == "__main__":
 	ottd_update_thread.start()
 
 
-	# watch if any of the threads is dead
+	# TODO watch if any of the threads is dead
 	#-------------------------------------
 
 
