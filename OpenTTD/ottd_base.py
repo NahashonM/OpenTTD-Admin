@@ -99,7 +99,14 @@ class OttdBase:
 		
 	
 	def flush_buffer(self):
-		self.receive_any()
+		packets = []
+		any_packet = self.receive_any()
+
+		while any_packet != None:
+			packets.append( any_packet )
+			any_packet = self.receive_any()
+		
+		return packets
 		
 	
 	def receive_list(self, packet_type):

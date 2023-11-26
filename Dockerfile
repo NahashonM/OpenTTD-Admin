@@ -7,7 +7,6 @@ COPY OpenTTD/requirements.txt .
 
 RUN pip --no-cache-dir install -r requirements.txt
 
-COPY OpenTTD/* .
-
+COPY OpenTTD /OpenTTD
 
 CMD ["python", "./main.py"]

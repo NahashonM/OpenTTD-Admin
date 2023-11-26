@@ -1,6 +1,7 @@
 
 import math 
 import logging
+import json
 
 from discordAdmin import run_discord_async_function
 from util import cmd_processor
@@ -96,8 +97,22 @@ def ottd_PacketAdminChat_handler( chat ):
 
 					return
 
+			buffer = globals.ottdPollAdmin.flush_buffer()
+			if buffer: globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 1 \n{ buffer }'  )
+			
+
 			globals.ottdPollAdmin.rcon_cmd(f'move {chat.to} {ottdenum.MAX_UBYTE}')
+
+			buffer = globals.ottdPollAdmin.flush_buffer()
+			if buffer: globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 2 \n{ buffer }'  )
+
 			globals.ottdPollAdmin.rcon_cmd(f'reset_company {company + 1}')
+
+
+			buffer = globals.ottdPollAdmin.flush_buffer()
+			if buffer: globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 3 \n{ buffer }'  )
+
+			
 			globals.ottdPollAdmin.poll_company_remove_reason()
 
 			return
@@ -187,6 +202,11 @@ def ottd_ClientUpdate_handler( client ):
 			if client.playas == ottdenum.MAX_UBYTE:		# has joined spectators
 				new_company = 'spectators'
 			else:
+
+				buffer = globals.ottdPollAdmin.flush_buffer()
+				if buffer: globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler client update \n{ buffer }'  )
+
+
 				company_info = globals.ottdPollAdmin.poll_company_info( client.playas )
 				if company_info: new_company = f'(#{company_info.id}):{company_info.name.decode()}'
 			
@@ -240,6 +260,10 @@ def ottd_ClientQuit_handler( client ):
 '''
 def ottd_CompanyNew_handler( company ):
 	try:
+		buffer = globals.ottdPollAdmin.flush_buffer()
+		if buffer: globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler company new \n{ buffer }'  )
+
+
 		company_info = globals.ottdPollAdmin.poll_company_info( company.id )
 		clients = globals.ottdPollAdmin.poll_client_info()
 
@@ -267,24 +291,21 @@ def ottd_CompanyNew_handler( company ):
 ==================================================================
 '''
 def ottd_CompanyUpdate_handler( company ):
-	print( 'company update', company)
+	pass
 
 
 '''
 ==================================================================
 '''
 def ottd_CompanyRemove_handler( company ):
-	print( 'company remove', company)
+	pass
 
 
 '''
 ==================================================================
 '''
 def ottd_ServerDate_handler( date ):
-	parsed_date =  ConvertDateToYMD( date.ticks )
-	new_quarter = math.floor(parsed_date[1] / 3) + 1
-	if new_quarter < 5:
-		run_discord_async_function( globals.discord_bot.send_message_to_ingame_channel(f'Quarter Q{new_quarter} for the year {parsed_date[0]} begins.' ) )
+	pass
 
 
 

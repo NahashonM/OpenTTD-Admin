@@ -1,7 +1,8 @@
 
 import math
-import tabulate
-
+import json
+import logging
+from tabulate import tabulate
 
 from discordAdmin import run_discord_async_function
 from util import cmd_processor, ctypes_values_list
@@ -11,9 +12,16 @@ import ottd_enum as ottdenum
 import globals
 
 
+logger = logging.getLogger("discord_handlers")
+
+
 def register_discord_bot_commands( bot ):
 	@bot.command()
 	async def companies(ctx):
+		buffer = globals.ottdPollAdmin.flush_buffer()
+		if buffer: await ctx.channel.send( f'discord_msg_handler companies \n{ buffer }'  )
+
+
 		res = globals.ottdPollAdmin.poll_company_info()
 		header = [x[0] for x in res[0]._fields_]
 		rows =  [ ctypes_values_list(x) for x in res]
@@ -23,6 +31,9 @@ def register_discord_bot_commands( bot ):
 
 	@bot.command()
 	async def clients(ctx):
+		buffer = globals.ottdPollAdmin.flush_buffer()
+		if buffer: await ctx.channel.send( f'discord_msg_handler clients \n{ buffer }'  )
+
 		res = globals.ottdPollAdmin.poll_client_info()
 		header = [x[0] for x in res[0]._fields_]
 		rows =  [ ctypes_values_list(x) for x in res]
@@ -32,22 +43,33 @@ def register_discord_bot_commands( bot ):
 	
 	@bot.command()
 	async def date(ctx):
-		res = globals.ottdPollAdmin.poll_current_date()
+		buffer = globals.ottdPollAdmin.flush_buffer()
+		if buffer: await ctx.channel.send( f'discord_msg_handler date \n{ buffer }'  )
 
+		res = globals.ottdPollAdmin.poll_current_date()
 		await ctx.channel.send(  ConvertDateToYMD(res.ticks )  )
 
 
 	@bot.command()
 	async def rcon(ctx, *, command):
 		try:
+			buffer = globals.ottdPollAdmin.flush_buffer()
+			if buffer: await ctx.channel.send( f'discord_msg_handler rcon \n{ buffer }'  )
+
 			rcon_res, _ = globals.ottdPollAdmin.rcon_cmd(command)
 
 			res = ''
-			for rc_res in rcon_res:
-				res += rc_res.text.decode() + '\n'
+
+			if rcon_res:
+				for rc_res in rcon_res:
+					res += rc_res.text.decode() + '\n'
+			else:
+				res = 'no result'
 
 			await ctx.channel.send( res )
-		except:
+			
+		except Exception as e:
+			logger.log( e  )
 			await ctx.channel.send( "something is not right" )
 
 	

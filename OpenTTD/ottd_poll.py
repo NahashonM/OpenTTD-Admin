@@ -18,10 +18,24 @@ class OttdPoll(OttdBase):
 
 		self.send( pkt.to_bytes() )
 
-		if extra_data == ottdenum.MAX_UINT:
-			return self.receive_list( receive_type )
+		elapsed_time = 0
+		start_time = time.time()
+
+		while elapsed_time < 10:
+			data = None
+
+			if extra_data == ottdenum.MAX_UINT:
+				data = self.receive_list( receive_type )
+			else:
+				data = self.receive( receive_type )
+
+			if data: 
+				return data
+			
+			elapsed_time = time.time() - start_time
 		
-		return self.receive( receive_type )
+		return None
+			
 	
 	
 	def poll_company_remove_reason(self):
