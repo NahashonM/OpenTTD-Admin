@@ -61,6 +61,10 @@ class DiscordBot(commands.Bot):
 				await self.process_commands(message)
 				return
 			
+			if message.content.startswith('!'):
+				await ctx.channel.send( "Err: Invalid Bot Command" )
+				return
+			
 			# process admin messages
 			for callback in self.on_admin_channel_message: 
 				callback(message)
