@@ -98,25 +98,12 @@ def ottd_PacketAdminChat_handler( chat ):
 
 					return
 
-			buffer = globals.ottdPollAdmin.flush_buffer()
-			if buffer: 
-				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 1 \n{ buffer }'  ))
-			
 			# move player to spectators
 			globals.ottdPollAdmin.rcon_cmd(f'move {chat.to} {ottdenum.MAX_UBYTE}')
-
-			buffer = globals.ottdPollAdmin.flush_buffer()
-			if buffer: 
-				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 2 \n{ buffer }'  ))
-			
 
 			# reset company
 			globals.ottdPollAdmin.rcon_cmd(f'reset_company {company + 1}')
 			_ = globals.ottdPollAdmin.poll_company_remove_reason()
-
-			buffer = globals.ottdPollAdmin.flush_buffer()
-			if buffer: 
-				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 3 \n{ buffer }'  ))
 
 			return
 		
@@ -209,12 +196,6 @@ def ottd_ClientUpdate_handler( client ):
 			if client.playas == ottdenum.MAX_UBYTE:		# has joined spectators
 				new_company = 'spectators'
 			else:
-
-				buffer = globals.ottdPollAdmin.flush_buffer()
-				if buffer: 
-					run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler client update \n{ buffer }'  ))
-					
-
 				company_info = globals.ottdPollAdmin.poll_company_info( client.playas )
 				if company_info: new_company = f'(#{company_info.id}):{company_info.name.decode()}'
 			
@@ -273,11 +254,6 @@ def ottd_ClientQuit_handler( client ):
 '''
 def ottd_CompanyNew_handler( company ):
 	try:
-		buffer = globals.ottdPollAdmin.flush_buffer()
-		if buffer: 
-			run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler company new \n{ buffer }'  ))
-
-
 		company_info = globals.ottdPollAdmin.poll_company_info( company.id )
 		clients = globals.ottdPollAdmin.poll_client_info()
 
