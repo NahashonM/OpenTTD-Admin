@@ -1,4 +1,5 @@
 import time
+import threading
 
 import ottd_enum as ottdenum
 import ottd_packet as ottdpkt
@@ -10,6 +11,12 @@ class OttdPoll(OttdBase):
 	
 	def __init__(self, server_ip, admin_port) -> None:
 		super().__init__(server_ip, admin_port)
+
+		pass
+	
+
+	def __del__(self):
+		pass
 
 	
 	def __poll_info__(self, info_type, extra_data, receive_type):

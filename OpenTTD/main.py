@@ -113,6 +113,7 @@ def start_ottd_update_watcher():
 		try:
 			ottd_update_handlers.OTTD_AUTO_UPDATE_HANDLERS[type(update).__name__](update)
 		except:
+			print( type(update).__name__ )
 			pass
 		
 
