@@ -78,11 +78,12 @@ def ottd_PacketAdminChat_handler( chat ):
 			try: company = globals.ottd_clients[chat.to]['company']
 			except: pass
 
+			# Cannor reset default specator company
 			if company == ottdenum.MAX_UBYTE:
 				globals.ottdPollAdmin.chat_client(chat.to, "Failed. You need to be in a company to reset it.")
 				return
 			
-
+			# cannot reset company if multiple users are in it
 			count = 0
 			for player_id in globals.ottd_clients:
 				player = globals.ottd_clients[player_id]
@@ -101,22 +102,21 @@ def ottd_PacketAdminChat_handler( chat ):
 			if buffer: 
 				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 1 \n{ buffer }'  ))
 			
-
+			# move player to spectators
 			globals.ottdPollAdmin.rcon_cmd(f'move {chat.to} {ottdenum.MAX_UBYTE}')
 
 			buffer = globals.ottdPollAdmin.flush_buffer()
 			if buffer: 
 				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 2 \n{ buffer }'  ))
+			
 
+			# reset company
 			globals.ottdPollAdmin.rcon_cmd(f'reset_company {company + 1}')
-
+			_ = globals.ottdPollAdmin.poll_company_remove_reason()
 
 			buffer = globals.ottdPollAdmin.flush_buffer()
 			if buffer: 
 				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler reset 3 \n{ buffer }'  ))
-
-			
-			globals.ottdPollAdmin.poll_company_remove_reason()
 
 			return
 		
@@ -213,7 +213,7 @@ def ottd_ClientUpdate_handler( client ):
 				buffer = globals.ottdPollAdmin.flush_buffer()
 				if buffer: 
 					run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f'ottd_upate_handler client update \n{ buffer }'  ))
-
+					
 
 				company_info = globals.ottdPollAdmin.poll_company_info( client.playas )
 				if company_info: new_company = f'(#{company_info.id}):{company_info.name.decode()}'
@@ -338,12 +338,37 @@ def ottd_ServerNewGame_handler( _ ):
 	globals.ottd_companies.clear()
 
 	# alert new game is starting
-	new_game_alert = '\n********** New Game Started **********\n'
+	new_game_alert = '**--------- New Game Started ---------**'
 
 	logger.info(new_game_alert)
+	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(""))
 	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(new_game_alert))
+	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(""))
 
 
+
+'''
+	ottd_ServerWelcome_handler
+
+	handler for events raised when:
+		1. admin joins a new server
+		2. the admin rejoins a server after restart
+==================================================================
+'''
+def ottd_ServerWelcome_handler( _ ):
+	logger.info('New Server Welcome Packer Received')
+
+
+
+'''
+	ottd_ClientError_handler
+
+	handler for events raised when:
+		1. admin client makes an error
+==================================================================
+'''
+def ottd_ClientError_handler( _ ):
+	logger.error('Client made an error')
 
 
 OTTD_AUTO_UPDATE_HANDLERS = {
@@ -352,6 +377,7 @@ OTTD_AUTO_UPDATE_HANDLERS = {
 		'ClientInfo'		: ottd_ClientInfo_handler,
 		'ClientUpdate'		: ottd_ClientUpdate_handler,
 		'ClientQuit'		: ottd_ClientQuit_handler,
+		'ClientError'		: ottd_ClientError_handler,
 		'CompanyNew'		: ottd_CompanyNew_handler,
 		'CompanyInfo'		: no_handler,
 		'CompanyEconomy'	: no_handler,
@@ -360,4 +386,5 @@ OTTD_AUTO_UPDATE_HANDLERS = {
 		'CompanyRemove'		: ottd_CompanyRemove_handler,
 		'ServerDate'		: ottd_ServerDate_handler,
 		'ServerNewGame'		: ottd_ServerNewGame_handler,
+		'ServerWelcome'		: ottd_ServerWelcome_handler,
 }
