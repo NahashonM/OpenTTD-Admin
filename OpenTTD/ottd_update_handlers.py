@@ -58,7 +58,7 @@ def ottd_PacketAdminChat_handler( chat ):
 			try: player_name = f'[#{chat.to}][{globals.ottd_clients[chat.to]["name"]}] '
 			except: player_name = f'[#{chat.to}] '
 
-			run_discord_async_function( globals.discord_bot.send_message_to_ingame_channel( player_name + message ) )
+			run_discord_async_function( globals.discord_bot.send_message_to_ingame_channel( player_name + message + '\n' ) )
 		return
 	
 
@@ -317,9 +317,7 @@ def ottd_ServerNewGame_handler( _ ):
 	new_game_alert = '**--------- New Game Started ---------**'
 
 	logger.info(new_game_alert)
-	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(""))
 	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(new_game_alert))
-	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(""))
 
 
 
