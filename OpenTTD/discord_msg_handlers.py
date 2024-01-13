@@ -18,10 +18,6 @@ logger = logging.getLogger("discord_handlers")
 def register_discord_bot_commands( bot ):
 	@bot.command()
 	async def companies(ctx):
-		buffer = globals.ottdPollAdmin.flush_buffer()
-		if buffer: await ctx.channel.send( f'discord_msg_handler companies \n{ buffer }'  )
-
-
 		res = globals.ottdPollAdmin.poll_company_info()
 		header = [x[0] for x in res[0]._fields_]
 		rows =  [ ctypes_values_list(x) for x in res]
@@ -31,9 +27,6 @@ def register_discord_bot_commands( bot ):
 
 	@bot.command()
 	async def clients(ctx):
-		buffer = globals.ottdPollAdmin.flush_buffer()
-		if buffer: await ctx.channel.send( f'discord_msg_handler clients \n{ buffer }'  )
-
 		res = globals.ottdPollAdmin.poll_client_info()
 		header = [x[0] for x in res[0]._fields_]
 		rows =  [ ctypes_values_list(x) for x in res]
@@ -43,9 +36,6 @@ def register_discord_bot_commands( bot ):
 	
 	@bot.command()
 	async def date(ctx):
-		buffer = globals.ottdPollAdmin.flush_buffer()
-		if buffer: await ctx.channel.send( f'discord_msg_handler date \n{ buffer }'  )
-
 		res = globals.ottdPollAdmin.poll_current_date()
 		await ctx.channel.send(  ConvertDateToYMD(res.ticks )  )
 
@@ -53,9 +43,6 @@ def register_discord_bot_commands( bot ):
 	@bot.command()
 	async def rcon(ctx, *, command):
 		try:
-			buffer = globals.ottdPollAdmin.flush_buffer()
-			if buffer: await ctx.channel.send( f'discord_msg_handler rcon \n{ buffer }'  )
-
 			rcon_res, _ = globals.ottdPollAdmin.rcon_cmd(command)
 
 			res = ''
@@ -69,7 +56,7 @@ def register_discord_bot_commands( bot ):
 			await ctx.channel.send( res )
 			
 		except Exception as e:
-			logger.log( e  )
+			logger.error( e  )
 			await ctx.channel.send( "something is not right" )
 
 	
