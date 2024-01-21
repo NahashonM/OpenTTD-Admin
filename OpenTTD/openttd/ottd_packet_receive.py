@@ -1,7 +1,7 @@
 
 import ctypes
-import ottd_enum as ottdenum
-from ottd_packet_base import BasePacket, BaseFactory
+import openttd.ottd_enum as ottdenum
+from openttd.ottd_packet_base import BasePacket, BaseFactory
 
 
 #----------------------------------------------
@@ -158,10 +158,25 @@ def company_stats_factory(raw_data: bytearray):
 #----------------------------------------------
 def company_update_factory(raw_data: bytearray):
 
+	offset = ctypes.sizeof(BaseFactory) + 1
+	sz_name = raw_data.index(b'\x00', offset) - offset + 1
+
+	offset += sz_name
+	sz_president = raw_data.index(b'\x00', offset) - offset + 1
+
 	class CompanyUpdate( BaseFactory ):
-		_fields_ = [	("id", ctypes.c_uint8)	]
+		_fields_ = [
+			("id", ctypes.c_uint8 ),
+			("name", ctypes.c_char * sz_name ),
+			("president", ctypes.c_char * sz_president ),
+			("color", ctypes.c_uint8 ),
+			("is_protected", ctypes.c_bool ),
+			("quaters_bankrupt", ctypes.c_uint8 ),
+			("share_owners", ctypes.c_uint8 * ottdenum.MAX_COMPANY_SHARE_OWNERS ),
+		]
 	
 	return CompanyUpdate.from_buffer(raw_data)
+
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_COMPANY_REMOVE

@@ -1,5 +1,6 @@
 
-import threading
+import os
+import logging
 import asyncio
 import discord
 
@@ -8,6 +9,7 @@ from discord.message import Message
 
 import globals
 
+logger = logging.getLogger( os.path.basename(__file__))
 
 
 #
@@ -43,16 +45,16 @@ class DiscordBot(commands.Bot):
 				elif channel.name == self.ingame_channel_name:
 					self.ingame_channel_id = channel.id
 
-			print(f"connected to {guild.name}:[{guild.id}] as user {self.user}")
-			print(f"\t admin channel: {self.admin_channel_name}:[{self.admin_channel_id}]")
-			print(f"\t ingame channel: {channel.name }:[{self.ingame_channel_id}]")
+			logger.info(f"connected to {guild.name}:[{guild.id}] as user {self.user}")
+			logger.info(f"\t admin channel: {self.admin_channel_name}:[{self.admin_channel_id}]")
+			logger.info(f"\t ingame channel: {channel.name }:[{self.ingame_channel_id}]")
 
 			break
 
 	async def on_message(self, message):
 
 		if message.author == self.user:	return
-
+		
 		ctx = await self.get_context(message)
 		if message.channel.id == self.admin_channel_id:
 			
@@ -88,7 +90,7 @@ class DiscordBot(commands.Bot):
 
 	async def send_message_to_admin_channel(self, message):
 		admin_channel = self.get_channel(self.admin_channel_id)
-		await admin_channel.send(message)
+		await admin_channel.send(message, delete_after=globals.msg_delete_timeout)
 
 	async def send_message_to_ingame_channel(self, message):
 		ingame_channel = self.get_channel(self.ingame_channel_id)

@@ -1,9 +1,9 @@
 
-import ottd_util as util
-import ottd_enum as ottdenum
+import openttd.ottd_util as util
+import openttd.ottd_enum as ottdenum
 
-from ottd_packet_send import *
-from ottd_packet_receive import *
+from openttd.ottd_packet_send import *
+from openttd.ottd_packet_receive import *
 
 
 PACKET_FACTORY_MATCH = {

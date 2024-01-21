@@ -4,13 +4,18 @@
 discord_bot = None
 
 
-# Global OpenTTD admin clients 
-#     poll admin : updates on query
-#  update admin  : automatic updates
+# Discord bot thread
 #-------------------------------------------------
-ottdPollAdmin = None
-ottdUpdateAdmin = None
+discord_thread = None
 
+# How long to keep messages
+#-------------------------------------------------
+msg_delete_timeout = 604800
+
+
+# Global OpenTTD admin client
+#-------------------------------------------------
+openttd = None
 
 # Global OpenTTD structures 
 #      ottd_clients : players currently in the game
@@ -23,3 +28,5 @@ ottd_companies = {}
 #
 #-------------------------------------------------
 serverWelcome = None
+
+

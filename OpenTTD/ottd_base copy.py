@@ -1,12 +1,12 @@
 
 import logging
 
-import ottd_enum as ottdenum
-import ottd_packet as ottdpkt
-import ottd_socket as ottdsocket
+import OpenTTD.openttd.ottd_enum as ottdenum
+import OpenTTD.openttd.ottd_packet as ottdpkt
+import OpenTTD.openttd.ottd_socket as ottdsocket
 
 
-logger = logging.getLogger("OTTDBase")
+logger = logging.getLogger("OttdBase")
 
 
 class OttdBase:

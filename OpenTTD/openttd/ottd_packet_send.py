@@ -1,9 +1,9 @@
 
 import ctypes
-import ottd_enum as ottdenum
 
-from ottd_packet_base import BaseFactory
+import openttd.ottd_enum as ottdenum
 
+from openttd.ottd_packet_base import BaseFactory
 
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_JOIN

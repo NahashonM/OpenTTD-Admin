@@ -1,6 +1,6 @@
 
 import sys
-import ottd_enum as ottdenum
+import openttd.ottd_enum as ottdenum
 
 #---------------------------------
 # type conversion
