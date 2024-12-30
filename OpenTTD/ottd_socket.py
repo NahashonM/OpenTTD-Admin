@@ -55,7 +55,7 @@ class OttdSocket:
 				if len(data) == num_bytes:
 					break
 
-				time.sleep(0.01)
+				time.sleep(0.2)
 
 		except socket.timeout:
 				pass

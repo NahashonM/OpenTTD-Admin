@@ -3,14 +3,14 @@ import ctypes
 
 import openttd.ottd_enum as ottdenum
 
-from openttd.ottd_packet_base import BaseFactory
+from openttd.ottd_packet_base import BasePacket
 
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_JOIN
 #----------------------------------------------
 
 def join_packet_factory(name : str , password : str, version : str):
-	class PacketAdminJoin(BaseFactory):
+	class PacketAdminJoin(BasePacket):
 		_fields_ = [
 			('password', ctypes.c_char * (len(password) + 1)),
 			('name', ctypes.c_char * (len(name) + 1)),
@@ -25,7 +25,7 @@ def join_packet_factory(name : str , password : str, version : str):
 #----------------------------------------------
 
 def ping_packet_factory():
-	class PacketAdminPing(BaseFactory):
+	class PacketAdminPing(BasePacket):
 		_fields_ = [	('__', ctypes.c_uint32)	]
 
 	return PacketAdminPing( ctypes.sizeof(PacketAdminPing), ottdenum.PacketAdminType.ADMIN_PACKET_ADMIN_PING, 0)
@@ -36,7 +36,7 @@ def ping_packet_factory():
 #----------------------------------------------
 
 def quit_packet_factory():
-	class PacketAdminQuit(BaseFactory):
+	class PacketAdminQuit(BasePacket):
 		_fields_ = []
 
 	return PacketAdminQuit( ctypes.sizeof(PacketAdminQuit), ottdenum.PacketAdminType.ADMIN_PACKET_ADMIN_QUIT)
@@ -47,7 +47,7 @@ def quit_packet_factory():
 #----------------------------------------------
 
 def poll_packet_factory( poll_type: ottdenum.AdminUpdateType, *, extra_data:int = ottdenum.MAX_UINT):
-	class PacketAdminPoll(BaseFactory):
+	class PacketAdminPoll(BasePacket):
 		_fields_ = [
 			('poll_type', ctypes.c_uint8),
 			('extra_data', ctypes.c_uint32)
@@ -61,7 +61,7 @@ def poll_packet_factory( poll_type: ottdenum.AdminUpdateType, *, extra_data:int 
 #----------------------------------------------
 
 def rcon_packet_factory( rcon_cmd: str ):
-	class PacketAdminRCON(BaseFactory):
+	class PacketAdminRCON(BasePacket):
 		_fields_ = [
 			('cmd', ctypes.c_char * (len(rcon_cmd) +1) )
 		]
@@ -73,7 +73,7 @@ def rcon_packet_factory( rcon_cmd: str ):
 #----------------------------------------------
 
 def gamescript_packet_factory( gamescript: str ):
-	class PacketAdminGameScript(BaseFactory):
+	class PacketAdminGameScript(BasePacket):
 		_fields_ = [
 			('script', ctypes.c_char * (len(gamescript) +1) )
 		]
@@ -84,7 +84,7 @@ def gamescript_packet_factory( gamescript: str ):
 #		ADMIN_PACKET_ADMIN_CHAT
 #----------------------------------------------
 def chat_packet_factory( chat_type, message: str, * , to: int = 0 ):
-	class PacketAdminChat(BaseFactory):
+	class PacketAdminChat(BasePacket):
 		_fields_ = [
 			('chat_type', ctypes.c_uint8 ),
 			('dest_type', ctypes.c_uint8 ),
@@ -100,7 +100,7 @@ def chat_packet_factory( chat_type, message: str, * , to: int = 0 ):
 #----------------------------------------------
 
 def external_chat_packet_factory( app: str, app_user: str, message: str, color: int = ottdenum.TextColor.TC_WHITE):
-	class PacketAdminChat(BaseFactory):
+	class PacketAdminChat(BasePacket):
 		_fields_ = [
 			('app', ctypes.c_char * (len(app) +1) ),
 			('color', ctypes.c_uint16 ),
@@ -118,7 +118,7 @@ def external_chat_packet_factory( app: str, app_user: str, message: str, color: 
 #----------------------------------------------
 
 def update_frequency_packet_factory( update_type, frequency):
-	class PacketUpdateFrequency(BaseFactory):
+	class PacketUpdateFrequency(BasePacket):
 		_fields_ = [
 			('update_type', ctypes.c_uint16 ),
 			('frequency', ctypes.c_uint16 )

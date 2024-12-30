@@ -36,7 +36,7 @@ PACKET_FACTORY_MATCH = {
 
 
 def get_packet_length(packet : bytearray):
-	return util.bytes_to_int(packet[:2])
+	return util.bytes_to_int(packet[:2]) 
 
 
 def get_packet_type(packet : bytearray):

@@ -1,10 +1,13 @@
 
+import time
 import logging
 
 import openttd.ottd_enum as ottdenum
 import openttd.ottd_packet as ottdpkt
 import openttd.ottd_socket as ottdsocket
 
+from ctypes import sizeof
+from openttd.ottd_packet_base import BasePacket
 
 logger = logging.getLogger("OTTDBase")
 
@@ -27,11 +30,6 @@ class OttdBase:
 
 		self.send( pkt.to_bytes() )
 
-		# self.server_protocol = self.receive(ottdenum.PacketAdminType.ADMIN_PACKET_SERVER_PROTOCOL)
-		# self.server_welcome = self.receive(ottdenum.PacketAdminType.ADMIN_PACKET_SERVER_WELCOME)
-		# return self.server_protocol, self.server_welcome
-		
-
 
 	def leave_server(self):
 		pkt = ottdpkt.quit_packet_factory()
@@ -45,15 +43,14 @@ class OttdBase:
 
 
 	def send(self, raw_data : bytearray):
-		self.sock.send_data( raw_data )
-
-
+		return self.sock.send_data( raw_data )
+	
 
 	def receive(self):
+		num_bytes = sizeof(BasePacket)
 
-		pkt_header = self.sock.peek(retries=self.peek_retries)
-
-		if len(pkt_header) != 3:
+		pkt_header = self.sock.peek(num_bytes=num_bytes, retries=self.peek_retries)
+		if len(pkt_header) != num_bytes:
 			return None
 		
 		data_length = ottdpkt.get_packet_length(pkt_header)
@@ -63,9 +60,8 @@ class OttdBase:
 			data = self.sock.receive_data(data_length)
 			packet_factory = ottdpkt.PACKET_FACTORY_MATCH[ packet_type ]
 			return packet_factory( data )
-		
-		except:
-			logger.error(f"unmatched packet type {packet_type}")
+		except Exception as e:
+			logger.error(f"error receiving packet: {packet_type}. exeception: {e}")
 			return None
 		
 	

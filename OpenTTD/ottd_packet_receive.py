@@ -1,103 +1,127 @@
 
+import logging
 import ctypes
 import openttd.ottd_enum as ottdenum
-from openttd.ottd_packet_base import BasePacket, BaseFactory
+from openttd.ottd_packet_base import BasePacket
+
+
+log = logging.getLogger("OTTDReceivePacketFactory")
+
 
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_CLIENT_JOIN
 #----------------------------------------------
 def client_join_factory(raw_data: bytearray):
-	class ClientJoin( BaseFactory ):
+	class ClientJoin( BasePacket ):
 		_fields_ = [ ("id", ctypes.c_uint32) ]
 	
-	return ClientJoin.from_buffer(raw_data)
+	try: return ClientJoin.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse client_join_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_CLIENT_INFO
 #----------------------------------------------
 def client_info_factory(raw_data: bytearray):
-	offset = ctypes.sizeof(BaseFactory) + 4
+	offset = ctypes.sizeof(BasePacket) + 4
 	sz_ip = raw_data.index(b'\x00', offset) - offset + 1
 
 	offset += sz_ip
 	sz_name = raw_data.index(b'\x00', offset) - offset + 1
 
-	class ClientInfo( BaseFactory ):
+	class ClientInfo( BasePacket ):
 		_fields_ = [
-			("id", ctypes.c_uint32 ),
-			("ip", ctypes.c_char * sz_ip ),
-			("name", ctypes.c_char * sz_name ),
+			("id", ctypes.c_uint32 ),			# sizeof = 4
+			("ip", ctypes.c_char * sz_ip ),		#
+			("name", ctypes.c_char * sz_name ), #
 			("language", ctypes.c_uint8 ),
 			("join_date", ctypes.c_uint32 ),
 			("company", ctypes.c_uint8 ),
 		]
 	
-	return ClientInfo.from_buffer(raw_data)
+	try: return ClientInfo.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse client_info_packet. Error {e}")
+		return None
+	
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_CLIENT_UPDATE
 #----------------------------------------------
 def client_update_factory(raw_data: bytearray):
 
-	offset = ctypes.sizeof(BaseFactory) + 4
+	offset = ctypes.sizeof(BasePacket) + 4
 	sz_name = raw_data.index(b'\x00', offset) - offset + 1
 
-	class ClientUpdate( BaseFactory ):
+	class ClientUpdate( BasePacket ):
 		_fields_ = [ 
 			("id", ctypes.c_uint32),
 			("name", ctypes.c_char * sz_name),
 			("playas", ctypes.c_uint8),		# team joined
 		]
 	
-	return ClientUpdate.from_buffer(raw_data)
+	try: return ClientUpdate.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse client_update_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_CLIENT_QUIT
 #----------------------------------------------
 def client_quit_factory(raw_data: bytearray):
 
-	class ClientQuit( BaseFactory ):
+	class ClientQuit( BasePacket ):
 		_fields_ = [ ("id", ctypes.c_uint32) ]
 	
-	return ClientQuit.from_buffer(raw_data)
+	try: return ClientQuit.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse client_quit_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_CLIENT_ERROR
 #----------------------------------------------
 def client_error_factory(raw_data: bytearray):
 
-	class ClientError( BaseFactory ):
+	class ClientError( BasePacket ):
 		_fields_ = [ 
 			("id", ctypes.c_uint32),
 			("error", ctypes.c_uint8),
 		]
 	
-	return ClientError.from_buffer(raw_data)
+	try: return ClientError.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse client_error_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_COMPANY_NEW
 #----------------------------------------------
 def company_new_factory(raw_data: bytearray):
 
-	class CompanyNew( BaseFactory ):
+	class CompanyNew( BasePacket ):
 		_fields_ = [	("id", ctypes.c_uint8)	]
 	
-	return CompanyNew.from_buffer(raw_data)
+	try: return CompanyNew.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_new_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_COMPANY_INFO
 #----------------------------------------------
 def company_info_factory(raw_data: bytearray):
-	offset = ctypes.sizeof(BaseFactory) + 1
+	offset = ctypes.sizeof(BasePacket) + 1
 	sz_name = raw_data.index(b'\x00', offset) - offset + 1
 
 	offset += sz_name
 	sz_president = raw_data.index(b'\x00', offset) - offset + 1
 
-	class CompanyInfo( BaseFactory ):
+	class CompanyInfo( BasePacket ):
 		_fields_ = [
 			("id", ctypes.c_uint8 ),
 			("name", ctypes.c_char * sz_name ),
@@ -107,10 +131,14 @@ def company_info_factory(raw_data: bytearray):
 			("start_date", ctypes.c_uint32 ),
 			("is_ai", ctypes.c_bool ),
 			("quaters_bankrupt", ctypes.c_uint8 ),
-			("share_owners", ctypes.c_uint8 * ottdenum.MAX_COMPANY_SHARE_OWNERS ),
+			# ("share_owners", ctypes.c_uint8 ),
+			# ("share_owners", ctypes.c_uint8 * ottdenum.MAX_COMPANY_SHARE_OWNERS ),
 		]
 	
-	return CompanyInfo.from_buffer(raw_data)
+	try: return CompanyInfo.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_info_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
@@ -125,7 +153,7 @@ def company_economy_factory(raw_data: bytearray):
 			("delivered_cargo", ctypes.c_uint16),
 		]
 
-	class CompanyEconomy( BaseFactory ):
+	class CompanyEconomy( BasePacket ):
 		_fields_ = [
 			("id", ctypes.c_uint8 ),
 			("money", ctypes.c_int64 ),
@@ -135,7 +163,10 @@ def company_economy_factory(raw_data: bytearray):
 			("quaters", EconomyQuaters * ottdenum.ECONOMY_INFO_QUARTERS),
 		]
 	
-	return CompanyEconomy.from_buffer(raw_data)
+	try: return CompanyEconomy.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_economy_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
@@ -143,14 +174,17 @@ def company_economy_factory(raw_data: bytearray):
 #----------------------------------------------
 def company_stats_factory(raw_data: bytearray):
 	print(raw_data)
-	class CompanyStats( BaseFactory ):
+	class CompanyStats( BasePacket ):
 		_fields_ = [
 			("id", ctypes.c_uint8 ),
 			("vehicles", ctypes.c_uint16 * ottdenum.NetworkVehicleType.NETWORK_VEH_END),
 			("stations", ctypes.c_uint16 * ottdenum.NetworkVehicleType.NETWORK_VEH_END),
 		]
 	
-	return CompanyStats.from_buffer(raw_data)
+	try: return CompanyStats.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_stats_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_COMPANY_UPDATE
@@ -158,13 +192,13 @@ def company_stats_factory(raw_data: bytearray):
 #----------------------------------------------
 def company_update_factory(raw_data: bytearray):
 
-	offset = ctypes.sizeof(BaseFactory) + 1
+	offset = ctypes.sizeof(BasePacket) + 1
 	sz_name = raw_data.index(b'\x00', offset) - offset + 1
 
 	offset += sz_name
 	sz_president = raw_data.index(b'\x00', offset) - offset + 1
 
-	class CompanyUpdate( BaseFactory ):
+	class CompanyUpdate( BasePacket ):
 		_fields_ = [
 			("id", ctypes.c_uint8 ),
 			("name", ctypes.c_char * sz_name ),
@@ -172,10 +206,13 @@ def company_update_factory(raw_data: bytearray):
 			("color", ctypes.c_uint8 ),
 			("is_protected", ctypes.c_bool ),
 			("quaters_bankrupt", ctypes.c_uint8 ),
-			("share_owners", ctypes.c_uint8 * ottdenum.MAX_COMPANY_SHARE_OWNERS ),
+			# ("share_owners", ctypes.c_uint8 * ottdenum.MAX_COMPANY_SHARE_OWNERS ),
 		]
 	
-	return CompanyUpdate.from_buffer(raw_data)
+	try: return CompanyUpdate.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_update_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
@@ -183,29 +220,35 @@ def company_update_factory(raw_data: bytearray):
 #----------------------------------------------
 def company_remove_factory(raw_data: bytearray):
 
-	class CompanyRemove( BaseFactory ):
+	class CompanyRemove( BasePacket ):
 		_fields_ = [
 			("id", ctypes.c_uint8),
 			("reason", ctypes.c_uint8),
 		]
-	
-	return CompanyRemove.from_buffer(raw_data)
+
+	try: return CompanyRemove.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse company_remove_packet. Error {e}")
+		return None
 
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_PROTOCOL
 #----------------------------------------------
 def server_protocol_factory(raw_data: bytearray):
-	class ServerProtocol( BaseFactory ):
+	class ServerProtocol( BasePacket ):
 		_fields_ = []
-
-	return ServerProtocol.from_buffer(raw_data)
+	
+	try: return ServerProtocol.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_protocol_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_WELCOME
 #----------------------------------------------
 def server_welcome_factory(raw_data: bytearray):
-	offset = ctypes.sizeof(BaseFactory)
+	offset = ctypes.sizeof(BasePacket)
 
 	sz_name = raw_data.index(b'\x00', offset) - offset + 1
 	offset += sz_name
@@ -215,7 +258,7 @@ def server_welcome_factory(raw_data: bytearray):
 
 	sz_map_name = raw_data.index(b'\x00', offset ) - offset + 1
 
-	class ServerWelcome( BaseFactory ):
+	class ServerWelcome( BasePacket ):
 		_fields_ = [
 			("name", ctypes.c_char * sz_name ),
 			("version", ctypes.c_char * sz_version ),
@@ -228,90 +271,105 @@ def server_welcome_factory(raw_data: bytearray):
 			("y", ctypes.c_uint16 ),
 		]
 	
-	return ServerWelcome.from_buffer(raw_data)
-
+	try: return ServerWelcome.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_welcome_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_DATE
 #----------------------------------------------
 def server_date_factory(raw_data: bytearray):
 
-	class ServerDate( BaseFactory ):
+	class ServerDate( BasePacket ):
 		_fields_ = [ ('ticks', ctypes.c_uint32 ) ]
 
-	return ServerDate.from_buffer(raw_data)
-
+	try: return ServerDate.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_date_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_PONG	
 #----------------------------------------------
 def server_pong_factory(raw_data: bytearray):
-	class ServerPong( BaseFactory ):
+	class ServerPong( BasePacket ):
 		_fields_ = []
 
-	return ServerPong.from_buffer(raw_data)
-
-
+	try: return ServerPong.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_pong_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_RCON
 #----------------------------------------------
 def rcon_results_factory(raw_data: bytearray):
 
-	offset = ctypes.sizeof(BaseFactory) + 3
+	offset = ctypes.sizeof(BasePacket) + 3
 	sz_text = raw_data.index(b'\x00', offset) - offset + 1
 
-	class RCONResult( BaseFactory ):
+	class RCONResult( BasePacket ):
 		_fields_ = [
 			("console_color", ctypes.c_uint16 ),
 			("text", ctypes.c_char * sz_text )
 		]
 	
-	return RCONResult.from_buffer(raw_data)
-
-
+	try: return RCONResult.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse rcon_result_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_RCON
 #----------------------------------------------
 def rcon_end_factory(raw_data: bytearray):
 
-	sz_cmd = len(raw_data) - ctypes.sizeof(BaseFactory)
+	sz_cmd = len(raw_data) - ctypes.sizeof(BasePacket)
 
-	class RCONEnd( BaseFactory ):
+	class RCONEnd( BasePacket ):
 		_fields_ = [ ("cmd", ctypes.c_char * sz_cmd ) ]
 	
-	return RCONEnd.from_buffer(raw_data)
-
-
+	try: return RCONEnd.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse rcon_end_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_NEWGAME
 #----------------------------------------------
 def server_new_game_factory(raw_data: bytearray):
 
-	class ServerNewGame( BaseFactory ):
+	class ServerNewGame( BasePacket ):
 		_fields_ = []
 	
-	return ServerNewGame.from_buffer(raw_data)
-
-
+	try: return ServerNewGame.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_newgame_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_SERVER_SHUTDOWN
 #----------------------------------------------
 def server_shutdown_factory(raw_data: bytearray):
 
-	class ServerShutdown( BaseFactory ):
+	class ServerShutdown( BasePacket ):
 		_fields_ = []
-
-	return ServerShutdown.from_buffer(raw_data)
-
-
-
+	
+	try: return ServerShutdown.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse server_shutdown_packet. Error {e}")
+		return None
+	
 #----------------------------------------------
 #		ADMIN_PACKET_ADMIN_CHAT
 #----------------------------------------------
 def incoming_chat_packet_factory( raw_data: bytearray ):
 
-	offset = ctypes.sizeof(BaseFactory) + 6
+	offset = ctypes.sizeof(BasePacket) + 6
 	sz_message = raw_data.index(b'\x00', offset) - offset + 1
 
-	class PacketAdminChat(BaseFactory):
+	class PacketAdminChat(BasePacket):
 		_fields_ = [
 			('chat_type', ctypes.c_uint8 ),
 			('dest_type', ctypes.c_uint8 ),
@@ -319,15 +377,16 @@ def incoming_chat_packet_factory( raw_data: bytearray ):
 			('message', ctypes.c_char * sz_message )
 		]
 	
-	return PacketAdminChat.from_buffer(raw_data)
-
+	try: return PacketAdminChat.from_buffer(raw_data)
+	except Exception as e: 
+		log.error(f"Failed to parse admin_chat_packet. Error {e}")
+		return None
 
 #----------------------------------------------
 #		ADMIN_PACKET_EXTERNAL_CHAT
 #----------------------------------------------
-
 def incoming_external_chat_packet_factory( app: str, app_user: str, message: str, color: int = ottdenum.TextColor.TC_WHITE):
-	class PacketAdminChat(BaseFactory):
+	class PacketAdminChat(BasePacket):
 		_fields_ = [
 			('app', ctypes.c_char * (len(app) +1) ),
 			('color', ctypes.c_uint16 ),
@@ -337,5 +396,11 @@ def incoming_external_chat_packet_factory( app: str, app_user: str, message: str
 	
 	color = max(ottdenum.TextColor.TC_BLUE, min(color, ottdenum.TextColor.TC_BLACK))
 
-	return PacketAdminChat( ctypes.sizeof(PacketAdminChat), ottdenum.PacketAdminType.ADMIN_PACKET_ADMIN_EXTERNAL_CHAT, 
+	try: 
+		return PacketAdminChat( ctypes.sizeof(PacketAdminChat), ottdenum.PacketAdminType.ADMIN_PACKET_ADMIN_EXTERNAL_CHAT, 
 					app.encode(), color, app_user.encode(), message.encode() )
+	except Exception as e: 
+		log.error(f"Failed to parse external_admin_chat_packet. Error {e}")
+		return None
+	
+

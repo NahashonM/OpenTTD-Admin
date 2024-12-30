@@ -4,12 +4,19 @@ import ctypes
 
 class BasePacket(ctypes.Structure):
 	_pack_ = 1
+	_fields_ = [
+		("packet_size", ctypes.c_uint16),
+		("packet_type", ctypes.c_uint8),
+	]
 
 	def __str__(self) -> str:
 		return self.to_str()
 	
 	def __repr__(self) -> str:
 		return self.to_str()
+
+	def to_bytes(self):
+		return bytearray(self)
 	
 	def to_str(self):
 		data = '{'
@@ -32,17 +39,7 @@ class BasePacket(ctypes.Structure):
 			data = data[:-1]
 			
 		return data + '}'
-	
 
 
 
-class BaseFactory(BasePacket):
-	_pack_ = 1
-	_fields_ = [
-		("packet_size", ctypes.c_uint16),
-		("packet_type", ctypes.c_uint8)
-	]
-
-	def to_bytes(self):
-		return bytearray(self)
 

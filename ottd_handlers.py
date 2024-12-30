@@ -15,33 +15,35 @@ import globals
 logger = logging.getLogger( os.path.basename(__file__))
 
 rules_menu = [
-	'========================== Rules =====================================',
+	'===================== Rules ========================',
 	'1. Please respect fellow players.',
 	'2. Do not block other companies.',
-	'3. Except for cities, Do not build station(s) on factories already being served by another company.',
-	'     Rule 3 is void only if you have permission from second company.',
+	'3. Do not build stations on factories being served by another company',
+	'       unless the first company authorizes it.',
 	'4. Do not intentionally destroy other companies vehicles with trains.',
-	'======================================================================='
+	'5. Try to use proxy companies to build roads on cities.',
+	'===================================================='
 ]
 
 
 help_menu = [
 	'==================== Help ==========================',
 	'!help : View this help message.',
-	'!rules : View house rules.',
-	'!reset : Wipe current company. (you must be the only player in the company.)',
-	'!admin : Request for admin help.',
-	'  '
+	'!rules : View server rules.',
+	'!reset : Delete company. (You must be the only player in the company.)',
+	# '!admin : Request for admin help.',
+	' ',
 	'********* Please note *********',
 	' a) all commands have the format !_command_ .',
-	' b) all commands are in the public chat.',
+	# ' b) If going AFK append "_afk" to you company name to prevent auto deletion.',
 	'===================================================='
 ]
 
 
 def log_console_and_discord(message):	
 	logger.info(message)
-	run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(f">> {message}"))
+	if globals.discord_bot:
+		run_discord_async_function(globals.discord_bot.send_message_to_ingame_channel(f">> {message}"))
 
 
 def escape_user_name(username):
@@ -62,8 +64,8 @@ def ottd_PacketAdminChat_handler( chat ):
 
 	cmd_args = cmd_processor( message )
 
-	if not cmd_args or cmd_args[0] == '':			# not a valid command. treat as a message
-		if chat.dest_type == ottdenum.DestType.DESTTYPE_BROADCAST:
+	if cmd_args == None:			# not a valid command. treat as a message
+		if globals.discord_bot and chat.dest_type == ottdenum.DestType.DESTTYPE_BROADCAST:
 			player_name = ''
 			try: player_name = f'[#{chat.to}] {globals.ottd_clients[chat.to]["name"]} '
 			except: player_name = f'[#{chat.to}] '
@@ -128,7 +130,9 @@ def ottd_PacketAdminChat_handler( chat ):
 			try: player_name = f'(#{chat.to}):{globals.ottd_clients[chat.to]["name"]}'
 			except: player_name = f'(#{chat.to})'
 
-			run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f"Admin call\nfrom: {player_name}\nmsg: {message} "  ))
+			if globals.discord_bot:
+				run_discord_async_function(globals.discord_bot.send_message_to_admin_channel( f"Admin call\nfrom: {player_name}\nmsg: {message} "  ))
+
 			return
 
 
@@ -141,18 +145,12 @@ def ottd_PacketAdminChat_handler( chat ):
 '''
 def ottd_ClientJoin_handler( client ):
 
-	# out of sync (OOS) with server
-	# poll for clients and leave
-	if client.id not in globals.ottd_clients:
-		globals.ottd_clients.clear()
-		globals.openttd.poll_client_info()
-		return
-	
 	# send welcome to player
 	name = globals.ottd_clients[client.id]['name']
 
-	#run_discord_async_function( 
-	#	globals.discord_bot.send_message_to_ingame_channel(f'(#{client.id}):{client.name.decode()} has joined the game') )
+	if globals.discord_bot:
+		run_discord_async_function( 
+			globals.discord_bot.send_message_to_ingame_channel(f'(#{client.id}):{client.name.decode()} has joined the game') )
 	
 	globals.openttd.chat_client(client.id,f'====================================================')
 	globals.openttd.chat_client(client.id,f'Hello {name}')
@@ -164,8 +162,6 @@ def ottd_ClientJoin_handler( client ):
 	globals.openttd.chat_client(client.id,f'====================================================')
 
 
-
-
 '''
 	ottd_ClientInfo_handler
 
@@ -175,7 +171,6 @@ def ottd_ClientJoin_handler( client ):
 	================================================================================
 '''
 def ottd_ClientInfo_handler( client ):
-
 	globals.ottd_clients[client.id] = {
 			'name': client.name.decode(),
 			'ip': client.ip,
@@ -196,13 +191,10 @@ def ottd_ClientInfo_handler( client ):
 '''
 def ottd_ClientUpdate_handler( client ):
 
-	# out of sync (OOS) with server
-	# poll for clients and leave
 	if client.id not in globals.ottd_clients:
 		globals.ottd_clients.clear()
 		globals.openttd.poll_client_info()
 		return
-
 	
 	# team change
 	if client.playas != globals.ottd_clients[client.id]['company']:
@@ -264,46 +256,28 @@ def ottd_ClientQuit_handler( client ):
 
 
 '''
-	ottd_CompanyNew_handler
+ottd_CompanyNew_handler
 
-	handler for events raised when:
-		1. a new company is created
-	==================================================================
+handler for events raised when:
+	1. a new company is created
+==================================================================
 '''
 def ottd_CompanyNew_handler( company ):
-
-	# out of sync (OOS) with server
-	# poll for companies and leave
-	if company.id not in globals.ottd_companies:
-		globals.ottd_companies.clear()
-		globals.openttd.poll_company_info()
-		return
-	
-	# send notification to discord
 	team = company.id + 1
-	founder_id = 0
-	
-	for player in globals.ottd_clients:
-		if globals.ottd_clients[player]['company'] == company.id:
-			founder_id = player
-			break
-		
+
 	globals.openttd.chat_team(team, "====================================================")
-	globals.openttd.chat_team(team, "x  Remember to secure the company with a password  x")
+	globals.openttd.chat_team(team, "x  Remember to secure your company with a password  x")
 	globals.openttd.chat_team(team, "x        unprotected companies will be reset       x")
 	globals.openttd.chat_team(team, "====================================================")
-	
-	log_console_and_discord(f'{ globals.ottd_clients[founder_id]["name"] } started new company {globals.ottd_companies[company.id]["name"]}')
-
 
 
 '''
-	ottd_CompanyInfo_handler
+ottd_CompanyInfo_handler
 
-	handler for events raised when:
-		1. new company is created
-		2. admin polls for company info
-	==================================================================
+handler for events raised when:
+	1. new company is created
+	2. admin polls for company info
+==================================================================
 '''
 def ottd_CompanyInfo_handler( company ):
 	globals.ottd_companies[company.id] = {
@@ -312,31 +286,34 @@ def ottd_CompanyInfo_handler( company ):
 			'color': company.color,
 			'is_protected': company.is_protected,
 			'start_date': company.start_date,
-			'quaters_bankrupt': company.quaters_bankrupt,
-			'share_owners': company.share_owners,
 		}
-
-
+	
 
 '''
-	ottd_CompanyUpdate_handler
+ottd_CompanyUpdate_handler
 
-	handler for events raised when:
-		1. company name changes
-		2. company president changes
-		3. company bankruptcy state change
-		4. company changes color
-		5. company is passworded
-		6. company gets new share owners
-	==================================================================
+handler for events raised when:
+	1. company name changes
+	2. company president changes
+	3. company bankruptcy state change
+	4. company changes color
+	5. company is passworded
+	6. company gets new share owners
+==================================================================
 '''
 def ottd_CompanyUpdate_handler( company ):
-	
-	# out of sync (OOS) with server
-	# poll for companies and leave
-	if company.id not in globals.ottd_companies:
+
+	def ottd_CompanyUpdate_handler_resync():
 		globals.ottd_companies.clear()
 		globals.openttd.poll_company_info()
+		return
+	
+	if company.id not in globals.ottd_companies:
+		ottd_CompanyUpdate_handler_resync()
+		return
+	
+	if 'start_date' not in globals.ottd_companies[company.id]:
+		ottd_CompanyUpdate_handler_resync()
 		return
 	
 	old_state = globals.ottd_companies[company.id]
@@ -346,12 +323,11 @@ def ottd_CompanyUpdate_handler( company ):
 			'president': company.president.decode(),
 			'color': company.color,
 			'is_protected': company.is_protected,
-			'quaters_bankrupt': company.quaters_bankrupt,
-			'share_owners': company.share_owners,
+			'start_date': old_state['start_date'],
+			# 'quaters_bankrupt': company.quaters_bankrupt,
+			# 'share_owners': company.share_owners,
 		}
-
 	
-
 	# company name change
 	if old_state["name"] != globals.ottd_companies[company.id]["name"]:
 		log_console_and_discord(f"{old_state['name']} is now {globals.ottd_companies[company.id]['name']}")
@@ -363,20 +339,13 @@ def ottd_CompanyUpdate_handler( company ):
 		else:
 			log_console_and_discord(f"{old_state['name']} is now unlocked")
 
-	# others
-	# TODO --- handle or ignore
-
-	
-
-	return
-
 
 '''
-	ottd_CompanyRemove_handler
+ottd_CompanyRemove_handler
 
-	handler for events raised when:
-		1. company is deleted
-	==================================================================
+handler for events raised when:
+	1. company is deleted
+==================================================================
 '''
 def ottd_CompanyRemove_handler( company ):
 	
@@ -396,11 +365,40 @@ def ottd_CompanyRemove_handler( company ):
 
 
 '''
+   ottd_ServerDate_handler
+
+   handle ingame ticks
+      1. keep password protected companies longer than 240 game months
+      1. keep _afk companies though out the game
 ==================================================================
 '''
 def ottd_ServerDate_handler( date ):
-	pass
+	globals.openttd.poll_company_info()
+	globals.openttd.poll_client_info()
+	return
 
+	# TODO --- implement AFK companies
+	# current_date = ConvertDateToYMD(date.ticks)
+	# possible_oos = False
+
+	# for company_id in globals.ottd_companies:
+	# 	company = globals.ottd_companies[company_id]
+
+	# 	try:
+	# 		if 'start_date' not in company:
+	# 			possible_oos = True
+	# 			continue
+
+	# 		age = current_date[0] - company["start_date"] 
+	# 		name_suffix = company['name'][-4:].lower() if len(company['name']) > 3 else ''
+	# 		name_has_afk = name_suffix.endswith('_afk')
+			
+	# 		# if age > 4 and not name_has_afk:
+	# 		# 	r
+
+		
+	# 	except Exception as e:
+	# 		print(e)
 
 '''
 	ottd_ServerNewGame_handler
