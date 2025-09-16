@@ -137,7 +137,7 @@ def reset(command, args, src):
 def rules(command, args, src):
     bot.chat_client(src, '************ Rules ************')
     bot.chat_client(src, " Respect other players.")
-    bot.chat_client(src, " No grefing without approval from targeted companies.")
+    bot.chat_client(src, " No griefing without approval from targeted companies.")
     bot.chat_client(src, " Don't intentionally block other players.")
     bot.chat_client(src, '  ')
 
