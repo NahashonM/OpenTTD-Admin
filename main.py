@@ -148,6 +148,8 @@ def help(command, args, src):
         bot.chat_client(src, help_msg)
     
     bot.chat_client(src, '  ')
+    bot.chat_client(src, '  -- Reset date: 2052 --')
+    bot.chat_client(src, '  ')
 
 
 # ------------------------------------------------- #
