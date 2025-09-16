@@ -64,7 +64,7 @@ class OTTDBot(OTTDClient):
         helps = []
         for cmd in self.commands:
             help_msg = self.commands[cmd].get('help')
-            helps.append(f'{'!'+cmd:>10} ---> {help_msg}')
+            helps.append(f'{"!"+cmd:>10} ---> {help_msg}')
         
         return helps
     
