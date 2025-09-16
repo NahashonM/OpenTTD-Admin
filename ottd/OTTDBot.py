@@ -60,6 +60,15 @@ class OTTDBot(OTTDClient):
         return decorator
     
 
+    def get_help_messages(self):
+        helps = []
+        for cmd in self.commands:
+            help_msg = self.commands[cmd].get('help')
+            helps.append(f'{'!'+cmd:>10} ---> {help_msg}')
+        
+        return helps
+    
+
     # packet_handler decorator
     def packet_handler(self, packet_type: OTTDEnums.AdminUpdateType):
         def decorator(packet_handler):

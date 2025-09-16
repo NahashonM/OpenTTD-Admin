@@ -92,7 +92,7 @@ def server_new_game_handler(packet):
 
 # ------------------------------------------------- #
 
-@bot.chat_command(command="reset", help="Reset/Wipe current company.")
+@bot.chat_command(command="reset", help="Reset/Wipe/Delete your company.")
 def reset(command, args, src):
     player = players[src]
     
@@ -133,14 +133,21 @@ def reset(command, args, src):
 
 
 
-@bot.chat_command(command="rules", help="View server rules.")
+@bot.chat_command(command="rules", help="View house rules.")
 def rules(command, args, src):
-    bot.chat_client(src, "rules")
+    bot.chat_client(src, '************ Rules ************')
+    bot.chat_client(src, " Respect other players.")
+    bot.chat_client(src, " Don't block intentionally block other players.")
+    bot.chat_client(src, '  ')
 
 
-@bot.chat_command(command="help", help="Print help message.")
+@bot.chat_command(command="help", help="Scream at the admin..!")
 def help(command, args, src):
-    bot.chat_client(src, "help")
+    bot.chat_client(src, '************ Help ************')
+    for help_msg in bot.get_help_messages():
+        bot.chat_client(src, help_msg)
+    
+    bot.chat_client(src, '  ')
 
 
 # ------------------------------------------------- #
