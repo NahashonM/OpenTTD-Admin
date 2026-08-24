@@ -1,171 +1,209 @@
-import os
-import time
-import logging
-import threading
-import discord
-import signal
-import argparse
+import re, functools, time
+from pyopenttdadmin import Admin, AdminUpdateType, openttdpacket as p, Auth
 
-from dotenv import load_dotenv
-load_dotenv()
-
-from openttd.ottd import OpenTTD
-from discord.bot import DiscordBot
-
-import discord_handlers as discord_handlers
-
-import ottd_handlers
-import openttd.ottd_enum as ottdenum
-
-import globals
+import PlayerCompanyDB as PCDB
 
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger( os.path.basename(__file__))
 
 
-def parse_cmd_arguments():
-    parser = argparse.ArgumentParser(
-                    prog = os.path.basename(__file__),
-                    description = 'OpenTTD Admin client',
-                    epilog = 'To report any bugs reach out to the dev via')
+def init(host: str, admin_pass: str, admin_name: str = "admin", port: str = 3977, admin_version: str = "v1.0"):
+
+    auth = Auth(name = admin_name, version = admin_version, password = admin_pass)
+    admin = Admin(ip = host, port = port, auth = auth)
+
+    rcon_buffer = []
+    chat_cmd_registry = {}
+    playerCoDB = PCDB.PlayerCompanyDatabase()
+
+
+    def chat_command(name: str):
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(admin, packet, *args, **kwargs):
+                return func(admin, packet, *args, **kwargs)
+            chat_cmd_registry[name.lower()] = wrapper
+            return wrapper
+        return decorator
+
+
+    @chat_command("reset")
+    def handle_reset(admin, packet, args):
+        client_id = packet.id
+        company_id = playerCoDB.get_client_company(client_id, None)
+
+        if not company_id:
+            admin.send_private("Something is wrong!!!", client_id)
+            admin.send_private("Please try again in a minute.", client_id)
+            admin.send_rcon("clients")
+            return
+
+        if company_id == PCDB.SPECTATOR_CO:
+            admin.send_private("You need to be in a company to do this.!!!", client_id)
+            return
+        
+        co_members = playerCoDB.get_company_clients(company_id)
+        if len(co_members) > 1:
+            admin.send_private("There are other players in the company.!!!", client_id)
+            return
+        
+        admin.send_rcon(f'move {client_id} {PCDB.SPECTATOR_CO}')
+        admin.send_rcon(f'reset_company {company_id}')
+
+
+    @chat_command("help")
+    def handle_help(admin, packet, args = None):
+        admin.send_private(" ", packet.id)
+        admin.send_private("========[ HELP MENU ]========", packet.id)
+
+        admin.send_private("  !help  :: Show this help message", packet.id)
+        admin.send_private("  !reset :: Delete current company", packet.id)
+        admin.send_private("  !rules :: Show server rules", packet.id)
+        admin.send_private("  !info  :: Show server tips", packet.id)
+
+        admin.send_private("=============================", packet.id)
+        admin.send_private(" ", packet.id)
+
+
+    @chat_command("rules")
+    def handle_rules(admin, packet, args = None):
+        admin.send_private(" ", packet.id)
+        admin.send_private("========[ RULES ]========", packet.id)
+
+        admin.send_private(" 1. Respect other players.", packet.id)
+        admin.send_private(" 2. Do not block other players.", packet.id)
+        admin.send_private(" 3. Do not steal primary & secondary resources.", packet.id)
+        admin.send_private(" 4. Towns are open for all.", packet.id)
+        admin.send_private(" 5. Do not build city grids.", packet.id)
+        admin.send_private(" 6. Please use only English in chat.", packet.id)
+
+        admin.send_private("=========================", packet.id)
+        admin.send_private(" ", packet.id)
+
+    @chat_command("info")
+    def handle_info(admin, packet, args = None):
+        admin.send_private(" ", packet.id)
+        admin.send_private("========[ INFO ]========", packet.id)
+        admin.send_private(" ", packet.id)
+        admin.send_private("Server resets in 31st December 2051", packet.id)
+        admin.send_private("---------------------", packet.id)
+        admin.send_private("Inactive companies are reset after 250 months (4 hours IRL).", packet.id)
+        admin.send_private("---------------------", packet.id)
+        admin.send_private("If going AFK for more than 4 hours, ", packet.id)
+        admin.send_private("  add \"[AFK]\" at the end of the company name", packet.id)
+        admin.send_private("  to extend company time by 4 hours.", packet.id)
+        admin.send_private("---------------------", packet.id)
+        admin.send_private("Use \"!help\" to view more commands.", packet.id)
+        admin.send_private("---------------------", packet.id)
+        admin.send_private(" ", packet.id)
+
+
+    @admin.add_handler(p.ChatPacket)
+    def chat_packet(admin: Admin, packet: p.ChatPacket):
+        match = re.match(r'^!([a-zA-Z0-9_]+)(?:\s+(.*))?$', packet.message)
+        if not match:
+            return
+
+        cmd_name = match.group(1).lower()
+        cmd_args = match.group(2) or ""
+
+        if cmd_name in chat_cmd_registry:
+            chat_cmd_registry[cmd_name](admin, packet, args=cmd_args)
+        else:
+            admin.send_private(f'Invalid command: {cmd_name}', packet.id)
+
+
+    @admin.add_handler(p.ClientJoinPacket)
+    def client_join_packet(admin: Admin, packet: p.ClientJoinPacket):
+        playerCoDB.update_client(packet.id)
+        handle_info(admin, packet)
+
+
+    @admin.add_handler(p.ClientQuitPacket)
+    def client_quit_packet(admin: Admin, packet: p.ClientQuitPacket):
+        playerCoDB.pop_client(packet.id)
+
+
+    @admin.add_handler(p.ClientInfoPacket)
+    @admin.add_handler(p.ClientUpdatePacket)
+    def client_info_packet(admin: Admin, packet: p.ClientInfoPacket):
+        playerCoDB.update_client(packet.id, packet.company_id)
+
+
+    @admin.add_handler(p.RconPacket)
+    def admin_rcon_packet_handler(admin: Admin, packet: p.RconPacket):
+        rcon_buffer.append(packet.response)
+
+
+    @admin.add_handler(p.RconEndPacket)
+    def admin_rcon_end_handler(admin: Admin, packet: p.RconEndPacket):
+        cmd = packet.command.strip()
+
+        if cmd == "clients":
+            pattern = r"Client #(?P<client_id>\d+)\s+name:\s*(?P<name>'.*?')\s+company:\s*(?P<company_id>\d+)\s+IP:\s*(?P<ip>\S+)"
+            for rclient in rcon_buffer:
+                match = re.search(pattern, rclient)
+                if match:
+                    data = match.groupdict()
+                    playerCoDB.update_client(data['client_id'], data['company_id'])
+
+        rcon_buffer.clear()
+
+
+    @admin.add_handler(p.NewGamePacket)
+    def admin_new_game_handler(admin: Admin, packet: p.NewGamePacket):
+        print("New game started. Local state reset.")
+        playerCoDB.clear()
+        admin.socket.close()
+
     
-    parser.add_argument('-e', '--env',
-                        action='store_true', 
-                        help="Generate .env file and exit.")
-
-    return parser.parse_args()
-
-
-
-# gen_env_file
-# 
-# regenerate .env file
-#---------------------------------------------------
-def gen_env_file():
-	env_path = os.path.join( os.path.dirname(os.path.realpath(__file__)) , '.env' )
-	with open(env_path, 'w') as env_file:
-		env_file.write(
-'''
-#	Discord Configs
-#-----------------------------------------
-DISCORD_TOKEN = _your_discord_bot_token_
-DISCORD_GUILD = _your_discord_server_
-DISCORD_ADMIN_CHANNEL = _your_discord_channel_to_send_admin_messages_
-DISCORD_INGAME_CHANNEL = _your_discord_channel_to_send_ingame_chat_messages_
-DISCORD_DELETE_MSGS_AFTER = _how_long_in_secons_to_keep_messages_
-DISCORD_CMD_PREFIX = !
-
-#	OpenTTD Server Configs
-#-----------------------------------------
-OPENTTD_HOST = _openttd_server_ip_or_hostname_
-OPENTTD_ADMIN_PORT = _openttd_server_admin_port_
-OPENTTD_ADMIN_NAME = _openttd_admin_name_for_polling_services_
-OPENTTD_ADMIN_PASSWORD = _openttd_admin_password_
-''')
-	
-	print(f'.env file generated in {env_path}')
-      
+    @admin.add_handler(p.ShutdownPacket)
+    def admin_shutdown_handler(admin: Admin, packet: p.ShutdownPacket):
+        print("Server is shutting down.")
+        try:
+            if hasattr(admin, 'socket') and admin.socket:
+                admin.socket.close()
+        except Exception:
+            pass
 
 
-def init_discord_bot():
-    #---- Parse Env Args ----
-    discord_token = os.getenv("DISCORD_TOKEN")
-    discord_guild = os.getenv("DISCORD_GUILD")  # servers   
-    admin_channel_name = os.getenv("DISCORD_ADMIN_CHANNEL")
-    ingame_channel_name = os.getenv("DISCORD_INGAME_CHANNEL")
-    command_prefix = os.getenv("DISCORD_CMD_PREFIX")
-
-    globals.msg_delete_timeout = os.getenv("DISCORD_DELETE_MSGS_AFTER")
-
-    #---- Init Bot ----
-    intents = discord.Intents.default()
-    intents = discord.Intents.all()
-    intents.message_content = True
-
-    discordBot = DiscordBot(discord_guild, admin_channel_name, ingame_channel_name, intents=intents, command_prefix=command_prefix)
-	
-    discord_handlers.register_discord_bot_commands(discordBot)
-
-    discordBot.register_on_admin_message_callback( discord_handlers.on_discord_admin_message )
-    discordBot.register_on_ingame_message_callback( discord_handlers.on_discord_message )
-
-    discord_thread = threading.Thread(target = discordBot.run, args = (discord_token, ))
-    discord_thread.start()
-
-    return discordBot, discord_thread
+    return admin
 
 
 
-def init_openttd_admin():
-    #---- Parse Env Args ----
-    openttd_host = os.getenv("OPENTTD_HOST")
-    openttd_admin_port = os.getenv("OPENTTD_ADMIN_PORT")
-    openttd_admin_user = os.getenv("OPENTTD_ADMIN_NAME")
-    openttd_admin_paswd = os.getenv("OPENTTD_ADMIN_PASSWORD")
-
-    openttd = OpenTTD(openttd_host, openttd_admin_port)
-
-    #---- Register packet Handlers ----
-    for handler in ottd_handlers.OTTD_AUTO_UPDATE_HANDLERS:
-        openttd.register_pkt_handler(handler, ottd_handlers.OTTD_AUTO_UPDATE_HANDLERS[handler])
-
-    
-    #---- Join Server ----
-    openttd.join_server(openttd_admin_user, openttd_admin_paswd)
-
-    openttd.set_is_ready(True)
-
-    return openttd
-     
+#======================================================================
 
 
 
-#------------------ Main --------------------------
-#---------------------------------------------------
 if __name__ == "__main__":
-    args = parse_cmd_arguments()
-    
-    if args.env:
-        gen_env_file()
-        exit(0)
-    
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    consecutive_failures = 0
+    max_consecutive_failures = 3
 
-    #------- init openttd server
-    try:
-        globals.openttd = init_openttd_admin()
+    while True:
+        connection_start_time = time.time()
 
-        globals.openttd.request_auto_update_company_info()
-        globals.openttd.request_auto_update_client_info()
-        globals.openttd.request_auto_update_chat()
-        globals.openttd.request_auto_update_date(ottdenum.AdminUpdateFrequency.ADMIN_FREQUENCY_QUARTERLY)
+        try:
+            bot = init(host = "localhost", admin_pass = "12345678")
+            bot.subscribe(AdminUpdateType.CLIENT_INFO)
+            bot.subscribe(AdminUpdateType.CHAT)
 
-    except:
-        logger.error('Error initializing openttd admin.')
-        exit(0)
-    
-    
-    #------- init discord bot  
-    try:
-        # globals.discord_bot, globals.discord_thread = init_discord_bot()
-        pass
-    except:
-        logger.error('Error initializing discord admin.')
-        exit(0)
-    
-    
-    #------- start discord admin
-    # globals.discord_bot.staart()
+            bot.send_rcon("clients")
+            bot.run()
+        except KeyboardInterrupt:
+            print("\nCtrl+C received. Shutting down.")
+            break
+        except Exception as e:
+            print(f"\nError: {e}")
 
-    
-    #------- start openttd admin
-    globals.openttd.run()
-    
-    # -- end
-    globals.discord_thread.join()
+        uptime = time.time() - connection_start_time
+        consecutive_failures += -(consecutive_failures) if uptime > 30 else 1
+
+        if consecutive_failures >= max_consecutive_failures:
+            print(f"Error: Failed to connect. attempts: ({consecutive_failures}/{max_consecutive_failures})")
+            print("Exiting!!!\n")
+            break
+
+        print("Attempting to reconnect.")
+
+        time.sleep(5)
 
 
-
-
-logger.warning("This file is not intended to be a module but a main application")
