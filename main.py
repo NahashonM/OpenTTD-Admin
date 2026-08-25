@@ -114,7 +114,6 @@ def init(host: str, admin_pass: str, admin_name: str = "admin", port: str = 3977
 
     @admin.add_handler(p.ClientJoinPacket)
     def client_join_packet(admin: Admin, packet: p.ClientJoinPacket):
-        playerCoDB.update_client(packet.id)
         handle_info(admin, packet)
 
 
@@ -126,7 +125,7 @@ def init(host: str, admin_pass: str, admin_name: str = "admin", port: str = 3977
     @admin.add_handler(p.ClientInfoPacket)
     @admin.add_handler(p.ClientUpdatePacket)
     def client_info_packet(admin: Admin, packet: p.ClientInfoPacket):
-        playerCoDB.update_client(packet.id, packet.company_id)
+        playerCoDB.update_client(packet.id, int(packet.company_id) + 1)
 
 
     @admin.add_handler(p.RconPacket)
